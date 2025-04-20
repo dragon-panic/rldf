@@ -185,7 +185,14 @@ def test_model_based_agent_status_updates():
     
     # Verify hunger and thirst also increase with AI step
     assert agent.hunger > initial_hunger, f"Hunger should increase after AI step (was {initial_hunger}, now {agent.hunger})"
-    assert agent.thirst > initial_thirst, f"Thirst should increase after AI step (was {initial_thirst}, now {agent.thirst})"
+    
+    # Check thirst changes based on agent actions
+    if agent.current_task == "Drinking" and result['success']:
+        # If the agent was drinking successfully, thirst should decrease
+        assert agent.thirst < initial_thirst, f"Thirst should decrease after successful drinking (was {initial_thirst}, now {agent.thirst})"
+    else:
+        # For all other actions, thirst should increase
+        assert agent.thirst > initial_thirst, f"Thirst should increase after AI step (was {initial_thirst}, now {agent.thirst})"
     
     print("  AI step test passed!")
 
