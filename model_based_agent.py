@@ -5,12 +5,16 @@ from agent import Agent
 from model import ObservationEncoder, AgentCNN
 import torch.nn.functional as F
 from environment import GridWorld
+import logging
+
+# Get the logger that's configured in train.py/main.py
+logger = logging.getLogger(__name__)
 
 try:
     from train import PPOAgentCNN
     PPO_AVAILABLE = True
 except ImportError:
-    print("Warning: PPOAgentCNN not available. Will only use standard AgentCNN models.")
+    logger.warning("Warning: PPOAgentCNN not available. Will only use standard AgentCNN models.")
     PPO_AVAILABLE = False
 
 class ModelBasedAgent(Agent):
@@ -37,50 +41,50 @@ class ModelBasedAgent(Agent):
         if 'ppo' in model_path and PPO_AVAILABLE:
             self.model = PPOAgentCNN()
             self.is_ppo_model = True
-            print("Using PPO model architecture")
+            logger.info("Using PPO model architecture")
         else:
             self.model = AgentCNN()
             self.is_ppo_model = False
             if 'ppo' in model_path and not PPO_AVAILABLE:
-                print("Warning: PPO model requested but PPOAgentCNN not available. Using standard AgentCNN.")
+                logger.warning("Warning: PPO model requested but PPOAgentCNN not available. Using standard AgentCNN.")
             else:
-                print("Using standard AgentCNN architecture")
+                logger.info("Using standard AgentCNN architecture")
         
         # Load trained weights
         try:
-            print(f"Attempting to load model from: {model_path}")
+            logger.info(f"Attempting to load model from: {model_path}")
             import os
             
             # Check if the file exists at the specified path
             if os.path.exists(model_path):
-                print(f"File exists and has size: {os.path.getsize(model_path)} bytes")
+                logger.info(f"File exists and has size: {os.path.getsize(model_path)} bytes")
             else:
                 # If not, try looking for it in the models directory
                 model_filename = os.path.basename(model_path)
                 models_dir_path = os.path.join('models', model_filename)
                 
                 if os.path.exists(models_dir_path):
-                    print(f"File found in models directory instead: {models_dir_path}")
+                    logger.info(f"File found in models directory instead: {models_dir_path}")
                     model_path = models_dir_path
-                    print(f"Using model from: {model_path}")
+                    logger.info(f"Using model from: {model_path}")
                 else:
-                    print(f"File does not exist at specified path: {model_path}")
-                    print(f"File also not found in models directory: {models_dir_path}")
-                    print(f"Current working directory: {os.getcwd()}")
+                    logger.warning(f"File does not exist at specified path: {model_path}")
+                    logger.warning(f"File also not found in models directory: {models_dir_path}")
+                    logger.warning(f"Current working directory: {os.getcwd()}")
                     
                     # List available model files in both current and models directory
-                    print("Available model files in current directory:")
+                    logger.info("Available model files in current directory:")
                     for file in os.listdir():
                         if file.endswith('.pth'):
-                            print(f"  - {file} ({os.path.getsize(file)} bytes)")
+                            logger.info(f"  - {file} ({os.path.getsize(file)} bytes)")
                     
                     if os.path.exists('models'):
-                        print("Available model files in models directory:")
+                        logger.info("Available model files in models directory:")
                         for file in os.listdir('models'):
                             if file.endswith('.pth'):
-                                print(f"  - models/{file} ({os.path.getsize(os.path.join('models', file))} bytes)")
+                                logger.info(f"  - models/{file} ({os.path.getsize(os.path.join('models', file))} bytes)")
                     else:
-                        print("The 'models' directory does not exist yet.")
+                        logger.warning("The 'models' directory does not exist yet.")
             
             model_state = torch.load(model_path)
             self.model.load_state_dict(model_state)
@@ -88,17 +92,17 @@ class ModelBasedAgent(Agent):
             
             # Debug info about model parameters
             total_params = sum(p.numel() for p in self.model.parameters())
-            print(f"Successfully loaded model from {model_path}")
-            print(f"Model has {total_params} parameters")
+            logger.info(f"Successfully loaded model from {model_path}")
+            logger.info(f"Model has {total_params} parameters")
             
             # Print a parameter sample to verify non-zero weights
             for name, param in self.model.named_parameters():
-                print(f"Parameter {name}: shape={param.shape}, sample={param.data.flatten()[:3]}")
+                logger.debug(f"Parameter {name}: shape={param.shape}, sample={param.data.flatten()[:3]}")
                 break  # Just print the first parameter
                 
         except Exception as e:
-            print(f"Error loading model: {e}")
-            print("Using untrained model (random decisions)")
+            logger.error(f"Error loading model: {e}")
+            logger.warning("Using untrained model (random decisions)")
         
         # Track current task
         self.current_task = "Initializing"
@@ -133,16 +137,16 @@ class ModelBasedAgent(Agent):
         observation = observation.unsqueeze(0)  # Add batch dimension
         
         # Print agent's current status for debugging
-        print(f"DEBUG - Agent Environment:")
+        logger.debug(f"Agent Environment:")
         self.environment.print_surrounding_area(self.row, self.col, 3)  # 3 cells in each direction = 7x7 grid
-        print(f"DEBUG - Agent status: Health={self.health:.1f}, Hunger={self.hunger:.1f}, Thirst={self.thirst:.1f}, Energy={self.energy:.1f}, Seeds={self.seeds}")
+        logger.debug(f"Agent status: Health={self.health:.1f}, Hunger={self.hunger:.1f}, Thirst={self.thirst:.1f}, Energy={self.energy:.1f}, Seeds={self.seeds}")
         
         # Get action probabilities - handle different model types
         with torch.no_grad():
             if self.is_ppo_model:
                 action_probs, state_value, _ = self.model(observation)
                 action_probs = action_probs.squeeze(0)
-                print(f"DEBUG - PPO Value prediction: {state_value.item():.3f}")
+                logger.debug(f"PPO Value prediction: {state_value.item():.3f}")
             else:
                 action_probs = self.model(observation).squeeze(0)
         
@@ -150,9 +154,9 @@ class ModelBasedAgent(Agent):
         action_names = ["Move North", "Move South", "Move East", "Move West", 
                         "Eat", "Drink", "Plant Seed", "Tend Plant", "Harvest"]
         
-        print("DEBUG - Action probabilities:")
+        logger.debug("Action probabilities:")
         for i, (name, prob) in enumerate(zip(action_names, action_probs.tolist())):
-            print(f"  {i}: {name} = {prob:.3f}")
+            logger.debug(f"  {i}: {name} = {prob:.3f}")
         
         # Get the highest probability action
         action_idx = torch.argmax(action_probs).item()
@@ -176,13 +180,13 @@ class ModelBasedAgent(Agent):
         self._set_current_task(action)
         
         # Print chosen action
-        print(f"DEBUG - Chosen action: {self.current_task}")
+        logger.debug(f"Chosen action: {self.current_task}")
         
         # Execute the action
         result = self.step(action)
         
         # Print action result
-        print(f"DEBUG - Action result: success={result['success']}, alive={result['alive']}\n")
+        logger.debug(f"Action result: success={result['success']}, alive={result['alive']}\n")
         
         # Return result
         return {"alive": result['alive'], "action": action, "success": result['success']}
@@ -222,8 +226,8 @@ class ModelBasedAgent(Agent):
         observation = self.encoder.get_observation(state) if not isinstance(state, torch.Tensor) else state
         x = observation.unsqueeze(0) if isinstance(observation, torch.Tensor) else torch.FloatTensor(observation).unsqueeze(0)  # Add batch dimension
         
-        print(f"Input tensor shape: {x.shape}, mean: {x.mean().item():.4f}, std: {x.std().item():.4f}")
-        print(f"Input tensor range: [{x.min().item():.4f}, {x.max().item():.4f}]")
+        logger.debug(f"Input tensor shape: {x.shape}, mean: {x.mean().item():.4f}, std: {x.std().item():.4f}")
+        logger.debug(f"Input tensor range: [{x.min().item():.4f}, {x.max().item():.4f}]")
         
         with torch.no_grad():
             if self.is_ppo_model:
@@ -234,20 +238,20 @@ class ModelBasedAgent(Agent):
         
         # Check for NaN values
         if torch.isnan(action_probs).any():
-            print("WARNING: NaN values detected in action probabilities!")
+            logger.warning("WARNING: NaN values detected in action probabilities!")
             # Replace NaNs with uniform distribution
             action_probs = torch.ones_like(action_probs) / action_probs.size(0)
         
         # Check for zero probabilities
         if (action_probs.sum() < 1e-10):
-            print("WARNING: All action probabilities are near zero!")
+            logger.warning("WARNING: All action probabilities are near zero!")
             action_probs = torch.ones_like(action_probs) / action_probs.size(0)
         
         # Normalize probabilities
         action_probs = F.softmax(action_probs, dim=0)
         
-        print(f"Output action probs: {action_probs.numpy()}")
-        print(f"Sum of probabilities: {action_probs.sum().item():.6f}")
+        logger.debug(f"Output action probs: {action_probs.numpy()}")
+        logger.debug(f"Sum of probabilities: {action_probs.sum().item():.6f}")
         
         return action_probs.numpy()
         
@@ -265,17 +269,17 @@ class ModelBasedAgent(Agent):
         action_probs = self.get_action_probs(observation)
         
         # Print current situation for debugging
-        print(f"Current position: ({self.row}, {self.col})")
-        print(f"Current task: {self.current_task}")
-        print(f"Agent status - Health: {self.health:.1f}, Hunger: {self.hunger:.1f}, Thirst: {self.thirst:.1f}")
+        logger.debug(f"Current position: ({self.row}, {self.col})")
+        logger.debug(f"Current task: {self.current_task}")
+        logger.debug(f"Agent status - Health: {self.health:.1f}, Hunger: {self.hunger:.1f}, Thirst: {self.thirst:.1f}")
         
         # Sample an action from the probability distribution
         try:
             action = np.random.choice(len(action_probs), p=action_probs)
-            print(f"Selected action: {action} ({self.action_to_string(action)})")
+            logger.debug(f"Selected action: {action} ({self.action_to_string(action)})")
             return action
         except Exception as e:
-            print(f"Error sampling action: {e}")
+            logger.error(f"Error sampling action: {e}")
             # Fallback to random action if sampling fails
             return np.random.randint(0, len(action_probs))
             

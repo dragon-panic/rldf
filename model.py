@@ -3,6 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from environment import GridWorld
+import logging
+
+# Get the logger that's configured in train.py/main.py
+logger = logging.getLogger(__name__)
 
 
 class ObservationEncoder:
@@ -171,16 +175,18 @@ def test_model_forward_pass():
     # Forward pass
     action_probs = model(observation)
     
-    print(f"Observation shape: {observation.shape}")
-    print(f"Action probabilities shape: {action_probs.shape}")
-    print(f"Action probabilities: {action_probs}")
+    logger.debug(f"Observation shape: {observation.shape}")
+    logger.debug(f"Action probabilities shape: {action_probs.shape}")
+    logger.debug(f"Action probabilities: {action_probs}")
     
     # The output should be a vector of 9 probabilities (one for each action)
     assert action_probs.shape == (1, 9), f"Expected shape (1, 9), got {action_probs.shape}"
     assert torch.isclose(action_probs.sum(), torch.tensor(1.0)), f"Sum of probabilities should be 1, got {action_probs.sum().item()}"
     
-    print("Forward pass test passed!")
+    logger.info("Forward pass test passed!")
 
 
 if __name__ == "__main__":
+    # Set up basic logging configuration for when this file is run directly
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
     test_model_forward_pass() 

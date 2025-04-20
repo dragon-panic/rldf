@@ -1,4 +1,8 @@
 import numpy as np
+import logging
+
+# Get the logger that's configured in train.py/main.py
+logger = logging.getLogger(__name__)
 
 class GridWorld:
     """A simple 2D grid environment for a farming simulation."""
@@ -244,16 +248,19 @@ class GridWorld:
         min_col = max(0, agent_col - radius)
         max_col = min(self.width - 1, agent_col + radius)
         
-        # Print top border
-        print("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
+        # Create a string representation of the grid area
+        output = []
         
-        # Print grid rows
+        # Top border
+        output.append("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
+        
+        # Grid rows
         for r in range(min_row, max_row + 1):
-            print("  |", end="")
+            row_str = "  |"
             for c in range(min_col, max_col + 1):
                 # If this is the agent's position, show 'A'
                 if r == agent_row and c == agent_col:
-                    print("A", end=" " if c < max_col else "")
+                    row_str += "A"
                 else:
                     # Get the cell type and appropriate symbol
                     cell_type = self.grid[r, c]
@@ -269,11 +276,21 @@ class GridWorld:
                         elif plant_state == self.PLANT_MATURE:
                             symbol = '*'
                     
-                    print(symbol, end=" " if c < max_col else "")
-            print("|")
+                    row_str += symbol
+                
+                # Add space after each cell except the last one
+                if c < max_col:
+                    row_str += " "
+            
+            row_str += "|"
+            output.append(row_str)
         
-        # Print bottom border
-        print("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
+        # Bottom border
+        output.append("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
         
-        # Print a simple legend
-        print("  Legend: A=Agent, ~=Water, .=Soil/Seed, ,=Growing, *=Mature") 
+        # Legend
+        output.append("  Legend: A=Agent, ~=Water, .=Soil/Seed, ,=Growing, *=Mature")
+        
+        # Log the output
+        for line in output:
+            logger.debug(line) 

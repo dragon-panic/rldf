@@ -1,11 +1,29 @@
 import pygame
 import numpy as np
 import argparse
+import logging
 from environment import GridWorld
 from agent import Agent
 from rule_based_agent import RuleBasedAgent
 from model_based_agent import ModelBasedAgent
 from visualize import GameVisualizer
+
+# Set up logging to be consistent with train.py
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Function to set log level for all loggers (same as in train.py)
+def set_log_level(log_level):
+    """Set the log level for all loggers in the application."""
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f'Invalid log level: {log_level}')
+    
+    # Set root logger level - this affects all loggers
+    logging.getLogger().setLevel(numeric_level)
+    
+    # Also set our module logger level explicitly
+    logger.setLevel(numeric_level)
 
 class EnhancedVisualizer(GameVisualizer):
     """Enhanced visualization that supports both manual and AI control modes"""
@@ -63,7 +81,7 @@ class EnhancedVisualizer(GameVisualizer):
             frames_per_step: Number of frames to wait between automated steps
         """
         if not self.agent:
-            print("Error: No agent provided for simulation")
+            logger.error("Error: No agent provided for simulation")
             return
             
         running = True
@@ -84,24 +102,24 @@ class EnhancedVisualizer(GameVisualizer):
             agent_type = "Neural Network AI"
         
         # Display appropriate control instructions based on mode
-        print(f"Running in {mode.upper()} mode with {agent_type} agent")
-        print("Simulation Controls:")
+        logger.info(f"Running in {mode.upper()} mode with {agent_type} agent")
+        logger.info("Simulation Controls:")
         
         if mode in ['manual', 'hybrid']:
-            print("  Arrow Keys: Move agent")
-            print("  E: Eat plant")
-            print("  D: Drink water")
-            print("  P: Plant seed")
-            print("  T: Tend plant")
-            print("  H: Harvest plant")
+            logger.info("  Arrow Keys: Move agent")
+            logger.info("  E: Eat plant")
+            logger.info("  D: Drink water")
+            logger.info("  P: Plant seed")
+            logger.info("  T: Tend plant")
+            logger.info("  H: Harvest plant")
         
-        print("  Space: Pause/Resume simulation")
+        logger.info("  Space: Pause/Resume simulation")
         
         if mode == 'hybrid':
-            print("  A: Toggle AI control (on/off)")
-            print("  Tab: Step simulation manually when paused")
+            logger.info("  A: Toggle AI control (on/off)")
+            logger.info("  Tab: Step simulation manually when paused")
         
-        print("  Esc: Quit")
+        logger.info("  Esc: Quit")
         
         while running:
             # Process events
@@ -113,7 +131,7 @@ class EnhancedVisualizer(GameVisualizer):
                         running = False
                     elif event.key == pygame.K_SPACE:
                         paused = not paused
-                        print(f"Simulation {'paused' if paused else 'resumed'}")
+                        logger.info(f"Simulation {'paused' if paused else 'resumed'}")
                     
                     # Restart game if agent is dead and any key is pressed
                     if hasattr(self.agent, 'is_alive') and not self.agent.is_alive and self.restart_prompt:
@@ -146,13 +164,13 @@ class EnhancedVisualizer(GameVisualizer):
                         step_count = 0
                         ai_timer = 0
                         frame_count = 0
-                        print("Simulation restarted with a new agent")
+                        logger.info("Simulation restarted with a new agent")
                         continue
                     
                     # Handle AI control toggle in hybrid mode
                     if mode == 'hybrid' and event.key == pygame.K_a:
                         self.ai_control = not self.ai_control
-                        print(f"AI control {'enabled' if self.ai_control else 'disabled'}")
+                        logger.info(f"AI control {'enabled' if self.ai_control else 'disabled'}")
                     
                     # Manual stepping when paused in AI or hybrid mode
                     if (mode in ['ai', 'hybrid']) and event.key == pygame.K_TAB and paused:
@@ -161,13 +179,13 @@ class EnhancedVisualizer(GameVisualizer):
                             if not result.get('alive', True) and not self.death_reported:
                                 self.death_reported = True
                                 self.death_message = result.get('cause_of_death', 'Unknown cause')
-                                print(f"Agent died! Cause: {self.death_message}")
+                                logger.warning(f"Agent died! Cause: {self.death_message}")
                                 self.restart_prompt = True
                         step_count += 1
                         if hasattr(self.agent, 'current_task'):
-                            print(f"Manual step {step_count}, Task: {self.agent.current_task}")
+                            logger.debug(f"Manual step {step_count}, Task: {self.agent.current_task}")
                         else:
-                            print(f"Manual step {step_count}")
+                            logger.debug(f"Manual step {step_count}")
                     
                     # Manual control in manual mode or hybrid mode with AI off
                     if (mode == 'manual' or (mode == 'hybrid' and not self.ai_control)) and \
@@ -195,7 +213,7 @@ class EnhancedVisualizer(GameVisualizer):
                         if hasattr(self.agent, 'is_alive') and not self.agent.is_alive and not self.death_reported:
                             self.death_reported = True
                             self.death_message = "Died from starvation, thirst, or other causes"
-                            print(f"Agent died! Cause: {self.death_message}")
+                            logger.warning(f"Agent died! Cause: {self.death_message}")
                             self.restart_prompt = True
             
             # Run AI actions
@@ -212,7 +230,7 @@ class EnhancedVisualizer(GameVisualizer):
                         if not result.get('alive', True) and not self.death_reported:
                             self.death_reported = True
                             self.death_message = result.get('cause_of_death', 'Unknown cause')
-                            print(f"Agent died! Cause: {self.death_message}")
+                            logger.warning(f"Agent died! Cause: {self.death_message}")
                             self.restart_prompt = True
                     else:
                         # Basic status update for non-AI agents
@@ -408,13 +426,18 @@ def main():
                         help='Size of grid cells in pixels')
     parser.add_argument('--model-path', type=str, default='models/ppo_trained_agent.pth',
                         help='Path to the trained model file (for model-based agent, can be models/ppo_trained_agent.pth or models/reinforce_trained_agent.pth)')
+    parser.add_argument('--log-level', type=str, choices=['debug', 'info', 'warning', 'error', 'critical'],
+                        default='info', help='Logging level for output verbosity')
     args = parser.parse_args()
     
+    # Set the logging level for all loggers
+    set_log_level(args.log_level)
+    
     # Print information about the current mode and agent type
-    print(f"Running simulation in {args.mode.upper()} mode with {args.agent_type.upper().replace('_', ' ')} agent")
+    logger.info(f"Running simulation in {args.mode.upper()} mode with {args.agent_type.upper().replace('_', ' ')} agent")
     if args.mode == 'manual':
-        print("Note: Default mode has been changed to 'ai' with 'model_based' agent.")
-        print("To use other modes, specify with --mode and --agent-type arguments.")
+        logger.info("Note: Default mode has been changed to 'ai' with 'model_based' agent.")
+        logger.info("To use other modes, specify with --mode and --agent-type arguments.")
     
     # Setup environment and agent based on mode
     if args.mode == 'manual':
