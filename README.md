@@ -94,6 +94,16 @@ We're starting with the farmer agent type in a simplified environment to establi
 - Improved training efficiency with proper hyperparameter settings
 - Created visualizations for value function assessment
 
+## Training Approaches
+
+The project supports two different approaches to training agents:
+
+1. **Structured Rewards (Default)**: This approach uses hand-crafted rewards for specific actions (planting, harvesting, eating, etc.) and carefully balances them to produce effective behavior.
+
+2. **Emergence Mode**: This approach uses a simplified reward function that primarily rewards survival and state improvement, without specifying which actions the agent should take. The agent must discover effective strategies on its own. Enable with `--emergence` flag.
+
+The emergence approach tends to need longer training time but may discover novel strategies and behaviors that weren't explicitly programmed. It's particularly interesting for observing how complex behaviors like farming cycles can emerge from simple survival-focused rewards.
+
 ## Project Structure
 
 - `environment.py`: Defines the GridWorld class for the 2D environment
@@ -133,13 +143,29 @@ python test_ppo.py              # Test PPO implementation components
 Use the main.py script for an interactive simulation with different modes:
 
 ```bash
-python main.py                                # Run in AI mode with neural network agent (default)
-python main.py --mode manual                  # Run with manual agent control
-python main.py --mode hybrid                  # Run in hybrid mode (manual + AI)
-python main.py --agent-type rule_based        # Use rule-based agent
-python main.py --mode hybrid --agent-type rule_based  # Run hybrid mode with rule-based agent
-python main.py --death                        # Run with near-death AI scenario
-python main.py --cell-size 30                 # Change the display cell size
+# Run in AI mode with neural network agent (default)
+python main.py
+
+# Specify a custom model file to use
+python main.py --model-path my_custom_model.pth
+
+# Run with manual agent control
+python main.py --mode manual
+
+# Run in hybrid mode (manual + AI)
+python main.py --mode hybrid
+
+# Use rule-based agent
+python main.py --agent-type rule_based
+
+# Run hybrid mode with rule-based agent
+python main.py --mode hybrid --agent-type rule_based
+
+# Run with near-death AI scenario
+python main.py --death
+
+# Change the display cell size
+python main.py --cell-size 30
 ```
 
 To compare both agent types side by side:
@@ -159,6 +185,12 @@ python train.py
 # Quick test run with minimal training for testing
 python train.py --quick
 
+# Use emergence mode with simplified rewards
+python train.py --emergence
+
+# Quick test with emergence mode
+python train.py --quick --emergence
+
 # Use REINFORCE algorithm instead of PPO
 python train.py --algorithm reinforce
 
@@ -167,6 +199,9 @@ python train.py --episodes 1000 --max-steps 800 --width 30 --height 30 --lr 0.00
 
 # Customize PPO-specific parameters
 python train.py --update-timestep 1000 --epochs 8 --batch-size 128 --entropy-coef 0.02
+
+# Save the model with a custom filename
+python train.py --output my_custom_model.pth
 
 # Get help on all available parameters
 python train.py --help

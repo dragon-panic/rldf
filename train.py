@@ -9,6 +9,7 @@ from model import ObservationEncoder, AgentCNN
 import matplotlib.pyplot as plt
 from collections import deque
 import time
+import os
 
 
 class PPOAgentCNN(nn.Module):
@@ -249,7 +250,7 @@ class Memory:
         self.values = []
 
 
-def calculate_reward(agent, action, success, prev_state=None):
+def calculate_reward(agent, action, success, prev_state=None, emergence=False):
     """
     Calculate the reward for an action.
     
@@ -258,9 +259,21 @@ def calculate_reward(agent, action, success, prev_state=None):
         action: The action that was performed
         success: Whether the action was successful
         prev_state: Previous agent state for comparing changes
+        emergence: Whether to use simplified rewards for emergent behavior
         
     Returns:
         float: The reward value
+    """
+    if emergence:
+        return calculate_emergence_reward(agent, action, success, prev_state)
+    else:
+        return calculate_structured_reward(agent, action, success, prev_state)
+
+
+def calculate_structured_reward(agent, action, success, prev_state=None):
+    """
+    Calculate a detailed, structured reward for specific actions.
+    Used for the standard, hand-crafted approach.
     """
     reward = 0.0
     
@@ -290,23 +303,56 @@ def calculate_reward(agent, action, success, prev_state=None):
     
     # Rewards for successful farming actions
     if action == Agent.PLANT_SEED:
-        reward += 1.0  # Planting is good
+        # Verify we actually planted a seed (which consumes a seed)
+        initial_seeds = prev_state['seeds'] if prev_state else agent.seeds + 1
+        if agent.seeds < initial_seeds:
+            reward += 1.0  # Planting is good
+        else:
+            # Attempted to plant but failed (no seeds, wrong terrain, etc.)
+            reward -= 0.5
     
     elif action == Agent.TEND_PLANT:
-        reward += 0.5  # Tending plants is good
+        # We already verified success is True, which means the plant was tended
+        # in the tend_plant method, but let's add an extra check
+        if success:
+            reward += 0.5  # Tending plants is good
+        else:
+            # Attempted to tend but failed (no plant, mature plant, etc.)
+            reward -= 0.3
     
     elif action == Agent.HARVEST:
-        reward += 3.0  # Harvesting is very good - primary goal
+        # Check if the action was actually legitimate (harvested a mature plant)
+        # We can tell this is true if:
+        # 1. success is True (already checked)
+        # 2. We got more seeds as a result (this is the result of a proper harvest)
+        initial_seeds = prev_state['seeds'] if prev_state else 0
+        if agent.seeds > initial_seeds:
+            reward += 3.0  # Harvesting is very good - but only if it was a real harvest
+        else:
+            # Attempting to harvest with nothing to harvest should actually be penalized
+            reward -= 0.5
     
     elif action == Agent.EAT:
         # Reward scales with hunger level
-        hunger_factor = min(1.0, agent.hunger / 60.0)
-        reward += 2.0 * hunger_factor
+        # But only if hunger actually decreased
+        initial_hunger = prev_state['hunger'] if prev_state else 100.0
+        if agent.hunger < initial_hunger:
+            hunger_factor = min(1.0, initial_hunger / 60.0)  # Use initial hunger to scale reward
+            reward += 2.0 * hunger_factor
+        else:
+            # Attempting to eat with nothing to eat should be penalized
+            reward -= 0.5
     
     elif action == Agent.DRINK:
         # Reward scales with thirst level
-        thirst_factor = min(1.0, agent.thirst / 60.0)
-        reward += 2.0 * thirst_factor
+        # But only if thirst actually decreased
+        initial_thirst = prev_state['thirst'] if prev_state else 100.0
+        if agent.thirst < initial_thirst:
+            thirst_factor = min(1.0, initial_thirst / 60.0)  # Use initial thirst to scale reward
+            reward += 2.0 * thirst_factor
+        else:
+            # Attempting to drink with no water nearby should be penalized
+            reward -= 0.5
     
     # Small reward for staying alive
     reward += 0.05
@@ -314,8 +360,61 @@ def calculate_reward(agent, action, success, prev_state=None):
     return reward
 
 
-def train_ppo(env, num_episodes=1000, update_timestep=2000, epochs=10, epsilon=0.2, 
-              gamma=0.99, gae_lambda=0.95, lr=0.0003, entropy_coef=0.01, value_coef=0.5,
+def calculate_emergence_reward(agent, action, success, prev_state=None):
+    """
+    Calculate a simple reward based primarily on survival and state improvement.
+    Used for the emergent behavior approach.
+    """
+    reward = 0.0
+    
+    # Base survival reward: small bonus for staying alive
+    reward += 0.05
+    
+    # Only use prev_state if it's available
+    if prev_state:
+        # Reward improvements in vital stats
+        # Hunger reduction
+        if agent.hunger < prev_state['hunger']:
+            # Greater reward for larger hunger reduction
+            hunger_change = prev_state['hunger'] - agent.hunger
+            reward += 0.5 * min(hunger_change / 20.0, 1.0)  # Cap at 1.0 for 20+ point reduction
+        
+        # Thirst reduction
+        if agent.thirst < prev_state['thirst']:
+            # Greater reward for larger thirst reduction
+            thirst_change = prev_state['thirst'] - agent.thirst
+            reward += 0.5 * min(thirst_change / 20.0, 1.0)  # Cap at 1.0 for 20+ point reduction
+            
+        # Seed acquisition (relevant for farming)
+        if agent.seeds > prev_state['seeds']:
+            # Small reward for gaining seeds
+            seed_change = agent.seeds - prev_state['seeds']
+            reward += 0.2 * seed_change
+    
+    # Penalties for critical conditions (to incentivize avoiding dangerous states)
+    if agent.hunger > 80:
+        # Penalty scales with hunger severity
+        hunger_penalty = 0.01 * (agent.hunger - 80) / 20.0
+        reward -= hunger_penalty
+        
+    if agent.thirst > 80:
+        # Penalty scales with thirst severity
+        thirst_penalty = 0.01 * (agent.thirst - 80) / 20.0
+        reward -= thirst_penalty
+        
+    if agent.health < 50:
+        # Penalty scales with health loss severity
+        health_penalty = 0.01 * (50 - agent.health) / 50.0
+        reward -= health_penalty
+    
+    # The previous version had a terminal penalty of -10.0 for dying
+    # We'll keep that in the training loop where terminal states are handled
+    
+    return reward
+
+
+def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0.2, 
+              gamma=0.99, gae_lambda=0.95, lr=0.0003, entropy_coef=0.05, value_coef=0.5,
               max_steps=1000, max_grad_norm=0.5, batch_size=64):
     """
     Train the agent using the PPO algorithm.
@@ -383,7 +482,7 @@ def train_ppo(env, num_episodes=1000, update_timestep=2000, epochs=10, epsilon=0
             success = agent.step(action)
             
             # Calculate reward
-            reward = calculate_reward(agent, action, success, prev_state)
+            reward = calculate_reward(agent, action, success, prev_state, args.emergence)
             
             # Check if agent is alive (health > 0)
             is_terminal = False
@@ -602,7 +701,7 @@ def update_ppo(model, optimizer, memory, returns, advantages, epochs, epsilon,
             optimizer.step()
 
 
-def run_agent_test(env, model, num_episodes=10, max_steps=1000):
+def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
     """
     Test the trained agent.
     
@@ -611,12 +710,16 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000):
         model: The trained neural network model
         num_episodes: Number of episodes to test for
         max_steps: Maximum steps per episode
+        args: Command line arguments for configuration
         
     Returns:
         dict: Test metrics
     """
     encoder = ObservationEncoder(env)
     agent = RLAgent(env, model, encoder)
+    
+    # Default emergence flag to False if args is None
+    emergence = args.emergence if args else False
     
     test_rewards = []
     test_lengths = []
@@ -647,7 +750,7 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000):
                     episode_plants_harvested += 1
             
             # Calculate reward for tracking (not used in decision making here)
-            reward = calculate_reward(agent, action, success)
+            reward = calculate_reward(agent, action, success, None, emergence)
             episode_reward += reward
             
             # Check if agent is alive
@@ -732,7 +835,7 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
             success = agent.step(action)
             
             # Calculate reward
-            reward = calculate_reward(agent, action, success, prev_state)
+            reward = calculate_reward(agent, action, success, prev_state, args.emergence)
             agent.rewards.append(reward)
             episode_reward += reward
             
@@ -812,7 +915,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a RL agent for the farming simulation')
     parser.add_argument('--algorithm', type=str, choices=['ppo', 'reinforce'], 
                       default='ppo', help='RL algorithm to use for training')
-    parser.add_argument('--episodes', type=int, default=500, 
+    parser.add_argument('--episodes', type=int, default=2000, 
                       help='Number of episodes to train for')
     parser.add_argument('--max-steps', type=int, default=500, 
                       help='Maximum steps per episode')
@@ -838,20 +941,32 @@ if __name__ == "__main__":
                       help='Batch size for PPO updates')
     parser.add_argument('--gae-lambda', type=float, default=0.95, 
                       help='GAE lambda parameter')
-    parser.add_argument('--entropy-coef', type=float, default=0.01, 
+    parser.add_argument('--entropy-coef', type=float, default=0.05, 
                       help='Entropy coefficient')
     parser.add_argument('--value-coef', type=float, default=0.5, 
                       help='Value loss coefficient')
     parser.add_argument('--quick', action='store_true', 
                       help='Run a quick training session for testing (overrides other parameters)')
+    parser.add_argument('--emergence', action='store_true', 
+                      help='Use simplified rewards to encourage emergent behavior')
+    parser.add_argument('--output', type=str, default='', 
+                      help='Custom output filename for the trained model weights (default: models/ppo_trained_agent.pth or models/reinforce_trained_agent.pth based on algorithm)')
     
     args = parser.parse_args()
     
     # If quick mode is enabled, override parameters for a fast test run
     if args.quick:
         print("Quick mode enabled - running a short training session for testing")
-        args.episodes = 10
-        args.max_steps = 100
+        
+        # For emergence, we need a bit more training time
+        if args.emergence:
+            print("Emergence mode - using slightly longer quick training")
+            args.episodes = 20
+            args.max_steps = 200
+        else:
+            args.episodes = 10
+            args.max_steps = 100
+            
         args.width = 20
         args.height = 20
         args.update_timestep = 100  # More frequent updates
@@ -881,7 +996,11 @@ if __name__ == "__main__":
             batch_size=args.batch_size
         )
         # Save the trained model
-        torch.save(model.state_dict(), 'ppo_trained_agent.pth')
+        model_save_path = args.output if args.output else 'models/ppo_trained_agent.pth'
+        # Ensure models directory exists
+        os.makedirs('models', exist_ok=True)
+        torch.save(model.state_dict(), model_save_path)
+        print(f"Model saved to {model_save_path}")
     else:  # REINFORCE
         model, training_history = train_reinforce(
             env, 
@@ -891,11 +1010,15 @@ if __name__ == "__main__":
             max_steps=args.max_steps
         )
         # Save the trained model
-        torch.save(model.state_dict(), 'reinforce_trained_agent.pth')
+        model_save_path = args.output if args.output else 'models/reinforce_trained_agent.pth'
+        # Ensure models directory exists
+        os.makedirs('models', exist_ok=True)
+        torch.save(model.state_dict(), model_save_path)
+        print(f"Model saved to {model_save_path}")
     
     # Test the trained agent
     print(f"\nTesting {args.algorithm.upper()} trained agent...")
-    test_metrics = run_agent_test(env, model, num_episodes=5)
+    test_metrics = run_agent_test(env, model, num_episodes=5, args=args)
     
     print("\nTest Results:")
     print(f"Average Reward: {test_metrics['avg_reward']:.2f}")

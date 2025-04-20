@@ -16,6 +16,7 @@ class EnhancedVisualizer(GameVisualizer):
         self.death_font = pygame.font.SysFont('Arial', 24, bold=True)
         self.death_reported = False
         self.death_message = ""
+        self.restart_prompt = False
         
     def draw_status_info(self, step_count):
         """Draw additional status information"""
@@ -45,6 +46,13 @@ class EnhancedVisualizer(GameVisualizer):
             # Center the text on screen
             text_rect = death_surface.get_rect(center=(self.screen.get_width()//2, self.screen.get_height()//2))
             self.screen.blit(death_surface, text_rect)
+            
+            # Add restart prompt
+            if self.restart_prompt:
+                restart_font = pygame.font.SysFont('Arial', 18)
+                restart_surface = restart_font.render("Press any key to restart", True, (0, 0, 255))
+                restart_rect = restart_surface.get_rect(center=(self.screen.get_width()//2, self.screen.get_height()//2 + 40))
+                self.screen.blit(restart_surface, restart_rect)
     
     def run_simulation(self, mode='manual', frames_per_step=30):
         """
@@ -107,6 +115,40 @@ class EnhancedVisualizer(GameVisualizer):
                         paused = not paused
                         print(f"Simulation {'paused' if paused else 'resumed'}")
                     
+                    # Restart game if agent is dead and any key is pressed
+                    if hasattr(self.agent, 'is_alive') and not self.agent.is_alive and self.restart_prompt:
+                        # Reinitialize the environment and agent with the same settings
+                        if mode == 'manual':
+                            self.grid_world, self.agent = setup_manual_environment()
+                        else:
+                            if "RuleBasedAgent" in self.agent.__class__.__name__:
+                                agent_type = 'rule_based'
+                            elif "ModelBasedAgent" in self.agent.__class__.__name__:
+                                agent_type = 'model_based'
+                            
+                            # Get the model path if it's a model-based agent
+                            model_path = None
+                            if hasattr(self.agent, 'model_path'):
+                                model_path = self.agent.model_path
+                            else:
+                                model_path = 'models/ppo_trained_agent.pth'
+                            
+                            # Reset the environment and agent
+                            self.grid_world, self.agent = setup_ai_environment(
+                                agent_type=agent_type,
+                                model_path=model_path,
+                                death_scenario=False  # Start with standard scenario
+                            )
+                        
+                        self.death_reported = False
+                        self.death_message = ""
+                        self.restart_prompt = False
+                        step_count = 0
+                        ai_timer = 0
+                        frame_count = 0
+                        print("Simulation restarted with a new agent")
+                        continue
+                    
                     # Handle AI control toggle in hybrid mode
                     if mode == 'hybrid' and event.key == pygame.K_a:
                         self.ai_control = not self.ai_control
@@ -120,6 +162,7 @@ class EnhancedVisualizer(GameVisualizer):
                                 self.death_reported = True
                                 self.death_message = result.get('cause_of_death', 'Unknown cause')
                                 print(f"Agent died! Cause: {self.death_message}")
+                                self.restart_prompt = True
                         step_count += 1
                         if hasattr(self.agent, 'current_task'):
                             print(f"Manual step {step_count}, Task: {self.agent.current_task}")
@@ -147,6 +190,13 @@ class EnhancedVisualizer(GameVisualizer):
                             self.agent.step(Agent.TEND_PLANT)
                         elif event.key == pygame.K_h:
                             self.agent.step(Agent.HARVEST)
+                        
+                        # Check if agent died after a manual action
+                        if hasattr(self.agent, 'is_alive') and not self.agent.is_alive and not self.death_reported:
+                            self.death_reported = True
+                            self.death_message = "Died from starvation, thirst, or other causes"
+                            print(f"Agent died! Cause: {self.death_message}")
+                            self.restart_prompt = True
             
             # Run AI actions
             agent_alive = not hasattr(self.agent, 'is_alive') or self.agent.is_alive
@@ -163,6 +213,7 @@ class EnhancedVisualizer(GameVisualizer):
                             self.death_reported = True
                             self.death_message = result.get('cause_of_death', 'Unknown cause')
                             print(f"Agent died! Cause: {self.death_message}")
+                            self.restart_prompt = True
                     else:
                         # Basic status update for non-AI agents
                         self.agent.update_status()
@@ -284,7 +335,7 @@ def setup_manual_environment():
     
     return env, agent
 
-def setup_ai_environment(agent_type='rule_based', death_scenario=False):
+def setup_ai_environment(agent_type='rule_based', death_scenario=False, model_path='models/ppo_trained_agent.pth'):
     """Set up an environment for AI agent control"""
     if death_scenario:
         # Create environment with minimal resources
@@ -300,7 +351,7 @@ def setup_ai_environment(agent_type='rule_based', death_scenario=False):
         
         # Create AI agent based on selected type
         if agent_type == 'model_based':
-            agent = ModelBasedAgent(env, start_row=start_row, start_col=start_col)
+            agent = ModelBasedAgent(env, model_path=model_path, start_row=start_row, start_col=start_col)
         else:  # Default to rule-based
             agent = RuleBasedAgent(env, start_row=start_row, start_col=start_col)
         
@@ -332,7 +383,7 @@ def setup_ai_environment(agent_type='rule_based', death_scenario=False):
         
         # Create AI agent based on selected type
         if agent_type == 'model_based':
-            agent = ModelBasedAgent(env, start_row=start_row, start_col=start_col)
+            agent = ModelBasedAgent(env, model_path=model_path, start_row=start_row, start_col=start_col)
         else:  # Default to rule-based
             agent = RuleBasedAgent(env, start_row=start_row, start_col=start_col)
         
@@ -355,6 +406,8 @@ def main():
                         help='Run death scenario (AI agent only)')
     parser.add_argument('--cell-size', type=int, default=25,
                         help='Size of grid cells in pixels')
+    parser.add_argument('--model-path', type=str, default='models/ppo_trained_agent.pth',
+                        help='Path to the trained model file (for model-based agent, can be models/ppo_trained_agent.pth or models/reinforce_trained_agent.pth)')
     args = parser.parse_args()
     
     # Print information about the current mode and agent type
@@ -367,7 +420,7 @@ def main():
     if args.mode == 'manual':
         env, agent = setup_manual_environment()
     else:  # 'ai' or 'hybrid'
-        env, agent = setup_ai_environment(agent_type=args.agent_type, death_scenario=args.death)
+        env, agent = setup_ai_environment(agent_type=args.agent_type, death_scenario=args.death, model_path=args.model_path)
     
     # Create visualizer
     visualizer = EnhancedVisualizer(env, cell_size=args.cell_size)
