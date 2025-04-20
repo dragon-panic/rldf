@@ -1,6 +1,6 @@
-# Phase 10: Training and Evaluation Guide
+# Training and Evaluation Guide
 
-This guide explains the training and evaluation system for the Reinforcement Learning Farming Simulation. This represents Phase 10 of our development plan, focused on training models, evaluating their performance, and visualizing the results.
+This guide explains the training and evaluation system for the Reinforcement Learning Farming Simulation, focused on training models, evaluating their performance, and visualizing the results.
 
 ## Components Overview
 

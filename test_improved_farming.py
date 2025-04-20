@@ -286,7 +286,7 @@ def plot_farming_results(metrics, steps):
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('improved_farming_results.png')
+    plt.savefig('models/improved_farming_results.png')
     
     # Only show if not in test mode
     if not 'pytest' in sys.modules:

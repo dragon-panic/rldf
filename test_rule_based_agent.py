@@ -151,7 +151,7 @@ def plot_results(results, steps):
     axes[4].grid(True)
     
     plt.tight_layout()
-    plt.savefig('rule_based_agent_performance.png')
+    plt.savefig('models/rule_based_agent_performance.png')
     plt.show()
     
     # Print survival statistics

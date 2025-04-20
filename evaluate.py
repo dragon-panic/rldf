@@ -277,7 +277,7 @@ def plot_comparison(comparison, metrics_to_plot=None, title='Agent Comparison'):
                       ha='center', va='bottom', fontweight='bold')
     
     plt.tight_layout()
-    plt.savefig('agent_comparison.png', dpi=300)
+    plt.savefig('models/agent_comparison.png', dpi=300)
     plt.show()
 
 def plot_training_progress(history, title='Training Progress'):
@@ -323,7 +323,7 @@ def plot_training_progress(history, title='Training Progress'):
     ax2.legend()
     
     plt.tight_layout()
-    plt.savefig('training_progress.png', dpi=300)
+    plt.savefig('models/training_progress.png', dpi=300)
     plt.show()
 
 def create_agent(agent_type, env, model_path=None):

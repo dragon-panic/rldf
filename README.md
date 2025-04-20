@@ -108,7 +108,7 @@ We're starting with the farmer agent type in a simplified environment to establi
   - End-to-end training and evaluation workflow
   - Batch evaluation across multiple episodes and scenarios
   - Detailed performance reports and visualizations
-- Created guide documentation for training and evaluation
+- Created comprehensive documentation in the `docs/` folder
 
 ## Training Approaches
 
@@ -135,7 +135,7 @@ The emergence approach tends to need longer training time but may discover novel
 - `evaluate.py`: Comprehensive agent evaluation framework
 - `run_training_and_evaluation.py`: End-to-end training and evaluation pipeline
 - `visualize_evaluation.py`: Graphical visualization of agent performance
-- `phase10_guide.md`: Guide for using the training and evaluation system
+- `docs/`: Comprehensive documentation for using the system
 
 ## Usage
 

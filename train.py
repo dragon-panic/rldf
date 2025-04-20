@@ -588,7 +588,7 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
     plt.ylabel('Length')
     
     plt.tight_layout()
-    plt.savefig('ppo_training_progress.png')
+    plt.savefig('models/ppo_training_progress.png')
     
     return model, {
         'rewards': episode_rewards,
@@ -969,7 +969,7 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
     plt.ylabel('Length')
     
     plt.tight_layout()
-    plt.savefig('training_progress.png')
+    plt.savefig('models/training_progress.png')
     
     return model, {
         'rewards': episode_rewards,
