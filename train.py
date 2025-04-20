@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import argparse
 from environment import GridWorld
 from agent import Agent
 from model import ObservationEncoder, AgentCNN
@@ -807,31 +808,93 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
 
 
 if __name__ == "__main__":
+    # Set up command line arguments
+    parser = argparse.ArgumentParser(description='Train a RL agent for the farming simulation')
+    parser.add_argument('--algorithm', type=str, choices=['ppo', 'reinforce'], 
+                      default='ppo', help='RL algorithm to use for training')
+    parser.add_argument('--episodes', type=int, default=500, 
+                      help='Number of episodes to train for')
+    parser.add_argument('--max-steps', type=int, default=500, 
+                      help='Maximum steps per episode')
+    parser.add_argument('--width', type=int, default=50, 
+                      help='Width of the grid environment')
+    parser.add_argument('--height', type=int, default=50, 
+                      help='Height of the grid environment')
+    parser.add_argument('--water', type=float, default=0.15, 
+                      help='Water probability in environment generation')
+    parser.add_argument('--lr', type=float, default=0.0003, 
+                      help='Learning rate')
+    parser.add_argument('--gamma', type=float, default=0.99, 
+                      help='Discount factor')
+    
+    # PPO-specific parameters
+    parser.add_argument('--update-timestep', type=int, default=2000, 
+                      help='Number of timesteps between PPO updates')
+    parser.add_argument('--epochs', type=int, default=10, 
+                      help='Number of PPO update epochs')
+    parser.add_argument('--epsilon', type=float, default=0.2, 
+                      help='PPO clipping parameter')
+    parser.add_argument('--batch-size', type=int, default=64, 
+                      help='Batch size for PPO updates')
+    parser.add_argument('--gae-lambda', type=float, default=0.95, 
+                      help='GAE lambda parameter')
+    parser.add_argument('--entropy-coef', type=float, default=0.01, 
+                      help='Entropy coefficient')
+    parser.add_argument('--value-coef', type=float, default=0.5, 
+                      help='Value loss coefficient')
+    parser.add_argument('--quick', action='store_true', 
+                      help='Run a quick training session for testing (overrides other parameters)')
+    
+    args = parser.parse_args()
+    
+    # If quick mode is enabled, override parameters for a fast test run
+    if args.quick:
+        print("Quick mode enabled - running a short training session for testing")
+        args.episodes = 10
+        args.max_steps = 100
+        args.width = 20
+        args.height = 20
+        args.update_timestep = 100  # More frequent updates
+        if args.algorithm == 'ppo':
+            args.epochs = 3
+            args.batch_size = 32
+    
     # Create the environment
-    env = GridWorld(width=50, height=50)
+    env = GridWorld(width=args.width, height=args.height, water_probability=args.water)
     
-    # Train the agent with PPO
-    print("Starting PPO training...")
-    model, training_history = train_ppo(
-        env, 
-        num_episodes=500, 
-        update_timestep=2000, 
-        epochs=10, 
-        epsilon=0.2, 
-        gamma=0.99, 
-        gae_lambda=0.95, 
-        lr=0.0003, 
-        entropy_coef=0.01, 
-        value_coef=0.5, 
-        max_steps=500, 
-        batch_size=64
-    )
+    # Train using selected algorithm
+    print(f"Starting training with {args.algorithm.upper()} for {args.episodes} episodes...")
     
-    # Save the trained model
-    torch.save(model.state_dict(), 'ppo_trained_agent.pth')
+    if args.algorithm == 'ppo':
+        model, training_history = train_ppo(
+            env, 
+            num_episodes=args.episodes, 
+            update_timestep=args.update_timestep, 
+            epochs=args.epochs, 
+            epsilon=args.epsilon, 
+            gamma=args.gamma, 
+            gae_lambda=args.gae_lambda, 
+            lr=args.lr, 
+            entropy_coef=args.entropy_coef, 
+            value_coef=args.value_coef, 
+            max_steps=args.max_steps, 
+            batch_size=args.batch_size
+        )
+        # Save the trained model
+        torch.save(model.state_dict(), 'ppo_trained_agent.pth')
+    else:  # REINFORCE
+        model, training_history = train_reinforce(
+            env, 
+            num_episodes=args.episodes, 
+            gamma=args.gamma, 
+            lr=args.lr, 
+            max_steps=args.max_steps
+        )
+        # Save the trained model
+        torch.save(model.state_dict(), 'reinforce_trained_agent.pth')
     
     # Test the trained agent
-    print("\nTesting PPO trained agent...")
+    print(f"\nTesting {args.algorithm.upper()} trained agent...")
     test_metrics = run_agent_test(env, model, num_episodes=5)
     
     print("\nTest Results:")

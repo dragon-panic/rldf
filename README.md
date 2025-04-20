@@ -1,6 +1,6 @@
 # RL Farming Simulation
 
-A reinforcement learning project for simulating farming agents in a resource-based environment, inspired by Dwarf Fortress-style simulation games.
+A reinforcement learning project for simulating farming agents in a resource-based environment, inspired by Dwarf Fortress-style simulation games. The project uses the Proximal Policy Optimization (PPO) algorithm to train agents that can learn complex survival and farming behaviors.
 
 ## Project Overview
 
@@ -133,12 +133,11 @@ python test_ppo.py              # Test PPO implementation components
 Use the main.py script for an interactive simulation with different modes:
 
 ```bash
-python main.py                                # Run in hybrid mode (default)
+python main.py                                # Run in AI mode with neural network agent (default)
 python main.py --mode manual                  # Run with manual agent control
-python main.py --mode ai                      # Run with AI-controlled agent
-python main.py --agent-type rule_based        # Use rule-based agent (default)
-python main.py --agent-type model_based       # Use neural network agent
-python main.py --mode ai --agent-type model_based  # Run neural network agent in AI mode
+python main.py --mode hybrid                  # Run in hybrid mode (manual + AI)
+python main.py --agent-type rule_based        # Use rule-based agent
+python main.py --mode hybrid --agent-type rule_based  # Run hybrid mode with rule-based agent
 python main.py --death                        # Run with near-death AI scenario
 python main.py --cell-size 30                 # Change the display cell size
 ```
@@ -154,14 +153,33 @@ python compare_agents.py --cell-size 20       # Adjust display size for comparis
 To train an agent using reinforcement learning:
 
 ```bash
-python train.py                               # Train using default PPO settings
-python -c "from train import train_reinforce; from environment import GridWorld; \
-           model, _ = train_reinforce(GridWorld(30, 30), num_episodes=200)"  # Train with REINFORCE
+# Train with default PPO settings
+python train.py
+
+# Quick test run with minimal training for testing
+python train.py --quick
+
+# Use REINFORCE algorithm instead of PPO
+python train.py --algorithm reinforce
+
+# Customize training parameters
+python train.py --episodes 1000 --max-steps 800 --width 30 --height 30 --lr 0.0002
+
+# Customize PPO-specific parameters
+python train.py --update-timestep 1000 --epochs 8 --batch-size 128 --entropy-coef 0.02
+
+# Get help on all available parameters
+python train.py --help
 ```
 
 ## Visualization Controls
 
 The main.py script supports the following controls based on the mode:
+
+### AI Mode Controls (Default)
+- **Space**: Pause/Resume simulation
+- **Tab**: Step simulation manually when paused
+- **ESC**: Exit the visualization
 
 ### Manual Mode Controls
 - **Arrow Keys**: Move the agent in different directions
@@ -171,11 +189,6 @@ The main.py script supports the following controls based on the mode:
 - **T**: Tend plant (if on a seed or growing plant)
 - **H**: Harvest (if on a mature plant)
 - **Space**: Pause/Resume simulation
-- **ESC**: Exit the visualization
-
-### AI Mode Controls
-- **Space**: Pause/Resume simulation
-- **Tab**: Step simulation manually when paused
 - **ESC**: Exit the visualization
 
 ### Hybrid Mode Controls

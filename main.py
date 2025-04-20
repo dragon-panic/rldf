@@ -62,9 +62,9 @@ class EnhancedVisualizer(GameVisualizer):
         paused = False
         frame_count = 0
         step_count = 0
-        ai_delay = 15  # Frames between AI steps
+        ai_delay = 8  # Frames between AI steps
         ai_timer = 0
-        env_step_interval = 10  # Steps between environment updates
+        env_step_interval = 5  # Steps between environment updates
         
         self.ai_control = (mode == 'ai')
         
@@ -348,14 +348,20 @@ def main():
     # Set up command line arguments
     parser = argparse.ArgumentParser(description='Run the RL Farming Simulation')
     parser.add_argument('--mode', type=str, choices=['manual', 'ai', 'hybrid'], 
-                        default='hybrid', help='Simulation mode')
+                        default='ai', help='Simulation mode')
     parser.add_argument('--agent-type', type=str, choices=['rule_based', 'model_based'],
-                        default='rule_based', help='Type of AI agent to use')
+                        default='model_based', help='Type of AI agent to use')
     parser.add_argument('--death', action='store_true', 
                         help='Run death scenario (AI agent only)')
     parser.add_argument('--cell-size', type=int, default=25,
                         help='Size of grid cells in pixels')
     args = parser.parse_args()
+    
+    # Print information about the current mode and agent type
+    print(f"Running simulation in {args.mode.upper()} mode with {args.agent_type.upper().replace('_', ' ')} agent")
+    if args.mode == 'manual':
+        print("Note: Default mode has been changed to 'ai' with 'model_based' agent.")
+        print("To use other modes, specify with --mode and --agent-type arguments.")
     
     # Setup environment and agent based on mode
     if args.mode == 'manual':
