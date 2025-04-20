@@ -74,6 +74,26 @@ We're starting with the farmer agent type in a simplified environment to establi
 - Created a comparison tool to run both agents side by side
 - Enhanced visualization to display agent type and current task
 
+## Phase 8: Preliminary RL Training ✓
+
+- Implemented basic REINFORCE algorithm for policy gradient learning
+- Created training loop with episode-based updates
+- Added reward function balancing survival and farming priorities
+- Implemented model saving and loading functionality
+- Added visualization of training progress
+
+## Phase 9: Complete RL Implementation ✓
+
+- Enhanced the RL implementation with PPO algorithm:
+  - Added value function estimation
+  - Implemented policy clipping
+  - Added entropy bonus for exploration
+  - Created proper batching of experiences
+- Implemented Generalized Advantage Estimation (GAE)
+- Added comprehensive testing framework for RL components
+- Improved training efficiency with proper hyperparameter settings
+- Created visualizations for value function assessment
+
 ## Project Structure
 
 - `environment.py`: Defines the GridWorld class for the 2D environment
@@ -85,6 +105,8 @@ We're starting with the farmer agent type in a simplified environment to establi
 - `model.py`: Neural network architecture for agent decision making
 - `model_based_agent.py`: Neural network-based agent implementation
 - `compare_agents.py`: Tool to run both agent types side by side for comparison
+- `train.py`: Implementation of RL algorithms (REINFORCE and PPO)
+- `test_ppo.py`: Test script to verify PPO implementation components
 - `test_environment.py`: Tests to verify grid functionality
 - `test_resources.py`: Tests for resource dynamics and growth mechanics
 - `test_agent.py`: Tests for agent functionality
@@ -105,6 +127,7 @@ python test_farming.py          # Test farming actions
 python test_farming_cycle.py    # See a complete farming cycle demonstration
 python test_rule_based_agent.py # Test rule-based agent performance
 python test_visualize.py        # Run graphical visualization demo
+python test_ppo.py              # Test PPO implementation components
 ```
 
 Use the main.py script for an interactive simulation with different modes:
@@ -126,6 +149,14 @@ To compare both agent types side by side:
 python compare_agents.py                      # Run both agents side by side
 python compare_agents.py --death              # Compare agents in death scenario
 python compare_agents.py --cell-size 20       # Adjust display size for comparison
+```
+
+To train an agent using reinforcement learning:
+
+```bash
+python train.py                               # Train using default PPO settings
+python -c "from train import train_reinforce; from environment import GridWorld; \
+           model, _ = train_reinforce(GridWorld(30, 30), num_episodes=200)"  # Train with REINFORCE
 ```
 
 ## Visualization Controls
@@ -169,7 +200,7 @@ See `requirements.txt` for dependencies:
 5. Farming Actions ✓
 6. Rule-Based Agent Logic ✓
 7. Model-Based Agent Implementation ✓
-8. Advanced RL Training and Fine-tuning (next)
-9. Environment Dynamics (growth, decay)
-10. Advanced Agent Behaviors
+8. Preliminary RL Training ✓
+9. Complete RL Implementation ✓
+10. Advanced Environment Dynamics (next)
 11. Multi-Agent Integration 
