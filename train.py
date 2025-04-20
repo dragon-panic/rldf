@@ -10,6 +10,24 @@ import matplotlib.pyplot as plt
 from collections import deque
 import time
 import os
+import logging
+
+# Set up logging with a root logger configuration so all modules inherit the settings
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Function to set log level for all loggers
+def set_log_level(log_level):
+    """Set the log level for all loggers in the application."""
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f'Invalid log level: {log_level}')
+    
+    # Set root logger level - this affects all loggers
+    logging.getLogger().setLevel(numeric_level)
+    
+    # Also set our module logger level explicitly
+    logger.setLevel(numeric_level)
 
 
 class PPOAgentCNN(nn.Module):
@@ -415,7 +433,7 @@ def calculate_emergence_reward(agent, action, success, prev_state=None):
 
 def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0.2, 
               gamma=0.99, gae_lambda=0.95, lr=0.0003, entropy_coef=0.05, value_coef=0.5,
-              max_steps=1000, max_grad_norm=0.5, batch_size=64, emergence=False):
+              max_steps=1000, max_grad_norm=0.5, batch_size=64, emergence=False, log_level='info'):
     """
     Train the agent using the PPO algorithm.
     
@@ -433,10 +451,15 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
         max_steps: Maximum steps per episode
         max_grad_norm: Maximum norm for gradient clipping
         batch_size: Mini batch size for updates
+        emergence: Whether to use simplified rewards for emergent behavior
+        log_level: Logging level ('debug', 'info', 'warning', 'error', 'critical')
         
     Returns:
         tuple: Trained model and training history
     """
+    # Set logging level for all loggers
+    set_log_level(log_level)
+    
     # Create the model, encoder, and agent
     encoder = ObservationEncoder(env)
     model = PPOAgentCNN()
@@ -519,6 +542,8 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
                 
                 # Clear memory
                 memory.clear()
+                
+                logger.debug(f"PPO update at timestep {time_step}")
         
         # Update episode tracking
         episode_rewards.append(episode_reward)
@@ -529,12 +554,22 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
         
         # Print progress
         end_time = time.time()
+        
+        # Log detailed info for each episode at debug level
+        logger.debug(f"Episode {episode + 1}/{num_episodes}, " 
+                    f"Reward: {episode_reward:.2f}, "
+                    f"Avg Reward: {moving_avg:.2f}, "
+                    f"Episode Length: {step}, "
+                    f"Total Steps: {total_steps}, "
+                    f"Time: {end_time - start_time:.2f}s")
+        
+        # Log summary info every 10 episodes at info level
         if (episode + 1) % 10 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}, "
-                  f"Avg Reward: {moving_avg:.2f}, "
-                  f"Episode Length: {step}, "
-                  f"Total Steps: {total_steps}, "
-                  f"Time: {end_time - start_time:.2f}s")
+            logger.info(f"Episode {episode + 1}/{num_episodes}, "
+                      f"Avg Reward: {moving_avg:.2f}, "
+                      f"Episode Length: {step}, "
+                      f"Total Steps: {total_steps}, "
+                      f"Time: {end_time - start_time:.2f}s")
     
     # Plot training progress
     plt.figure(figsize=(12, 4))
@@ -701,7 +736,7 @@ def update_ppo(model, optimizer, memory, returns, advantages, epochs, epsilon,
             optimizer.step()
 
 
-def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
+def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None, log_level='info'):
     """
     Test the trained agent.
     
@@ -711,10 +746,14 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
         num_episodes: Number of episodes to test for
         max_steps: Maximum steps per episode
         args: Command line arguments for configuration
+        log_level: Logging level ('debug', 'info', 'warning', 'error', 'critical')
         
     Returns:
         dict: Test metrics
     """
+    # Set logging level for all loggers
+    set_log_level(log_level)
+    
     encoder = ObservationEncoder(env)
     agent = RLAgent(env, model, encoder)
     
@@ -749,6 +788,12 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
                 elif action == Agent.HARVEST:
                     episode_plants_harvested += 1
             
+            # Log detailed step information at debug level
+            logger.debug(f"Test Episode {episode + 1}, Step {step + 1}, "
+                        f"Action: {action}, Success: {success}, "
+                        f"Health: {agent.health:.1f}, Hunger: {agent.hunger:.1f}, "
+                        f"Thirst: {agent.thirst:.1f}, Energy: {agent.energy:.1f}")
+            
             # Calculate reward for tracking (not used in decision making here)
             reward = calculate_reward(agent, action, success, None, emergence)
             episode_reward += reward
@@ -765,11 +810,11 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
         seeds_planted.append(episode_seeds_planted)
         plants_harvested.append(episode_plants_harvested)
         
-        print(f"Test Episode {episode + 1}, "
-              f"Reward: {episode_reward:.2f}, "
-              f"Length: {step}, "
-              f"Seeds Planted: {episode_seeds_planted}, "
-              f"Plants Harvested: {episode_plants_harvested}")
+        logger.info(f"Test Episode {episode + 1}, "
+                  f"Reward: {episode_reward:.2f}, "
+                  f"Length: {step}, "
+                  f"Seeds Planted: {episode_seeds_planted}, "
+                  f"Plants Harvested: {episode_plants_harvested}")
     
     # Return test metrics
     return {
@@ -784,7 +829,8 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
     }
 
 
-def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000, emergence=False):
+def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000, 
+                   emergence=False, log_level='info'):
     """
     Train the agent using the REINFORCE algorithm.
     
@@ -794,10 +840,15 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
         gamma: Discount factor
         lr: Learning rate
         max_steps: Maximum steps per episode
+        emergence: Whether to use simplified rewards for emergent behavior
+        log_level: Logging level ('debug', 'info', 'warning', 'error', 'critical')
         
     Returns:
         tuple: Trained model and training history
     """
+    # Set logging level for all loggers
+    set_log_level(log_level)
+    
     # Create the model, encoder, and agent
     encoder = ObservationEncoder(env)
     model = AgentCNN()
@@ -816,6 +867,8 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
     
     # Training loop
     for episode in range(num_episodes):
+        start_time = time.time()
+        
         # Reset environment and agent
         env.reset()
         agent.reset_episode()
@@ -839,12 +892,17 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
             agent.rewards.append(reward)
             episode_reward += reward
             
+            # Log detailed step information at debug level
+            logger.debug(f"Episode {episode + 1}, Step {step + 1}, "
+                        f"Action: {action}, Success: {success}, Reward: {reward:.2f}")
+            
             # Check if agent is alive (health > 0)
             if agent.health <= 0:
                 agent.is_alive = False
                 # Extra penalty for dying
                 agent.rewards[-1] -= 10.0
                 episode_reward -= 10.0
+                logger.debug(f"Agent died at step {step + 1}")
             
             step += 1
         
@@ -878,11 +936,21 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
         policy_loss.backward()
         optimizer.step()
         
-        # Print progress
+        end_time = time.time()
+        
+        # Log detailed info at debug level
+        logger.debug(f"Episode {episode + 1}/{num_episodes}, "
+                    f"Reward: {episode_reward:.2f}, "
+                    f"Avg Reward: {moving_avg:.2f}, "
+                    f"Episode Length: {step}, "
+                    f"Time: {end_time - start_time:.2f}s")
+        
+        # Print progress at info level
         if (episode + 1) % 10 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}, "
-                  f"Avg Reward: {moving_avg:.2f}, "
-                  f"Episode Length: {step}")
+            logger.info(f"Episode {episode + 1}/{num_episodes}, "
+                      f"Avg Reward: {moving_avg:.2f}, "
+                      f"Episode Length: {step}, "
+                      f"Time: {end_time - start_time:.2f}s")
     
     # Plot training progress
     plt.figure(figsize=(12, 4))
@@ -951,16 +1019,21 @@ if __name__ == "__main__":
                       help='Use simplified rewards to encourage emergent behavior')
     parser.add_argument('--output', type=str, default='', 
                       help='Custom output filename for the trained model weights (default: models/ppo_trained_agent.pth or models/reinforce_trained_agent.pth based on algorithm)')
+    parser.add_argument('--log-level', type=str, choices=['debug', 'info', 'warning', 'error', 'critical'],
+                      default='info', help='Logging level for output verbosity')
     
     args = parser.parse_args()
     
+    # Set the logging level for all loggers based on the arg
+    set_log_level(args.log_level)
+    
     # If quick mode is enabled, override parameters for a fast test run
     if args.quick:
-        print("Quick mode enabled - running a short training session for testing")
+        logger.info("Quick mode enabled - running a short training session for testing")
         
         # For emergence, we need a bit more training time
         if args.emergence:
-            print("Emergence mode - using slightly longer quick training")
+            logger.info("Emergence mode - using slightly longer quick training")
             args.episodes = 20
             args.max_steps = 200
         else:
@@ -978,7 +1051,7 @@ if __name__ == "__main__":
     env = GridWorld(width=args.width, height=args.height, water_probability=args.water)
     
     # Train using selected algorithm
-    print(f"Starting training with {args.algorithm.upper()} for {args.episodes} episodes...")
+    logger.info(f"Starting training with {args.algorithm.upper()} for {args.episodes} episodes...")
     
     if args.algorithm == 'ppo':
         model, training_history = train_ppo(
@@ -994,14 +1067,15 @@ if __name__ == "__main__":
             value_coef=args.value_coef, 
             max_steps=args.max_steps, 
             batch_size=args.batch_size,
-            emergence=args.emergence
+            emergence=args.emergence,
+            log_level=args.log_level
         )
         # Save the trained model
         model_save_path = args.output if args.output else 'models/ppo_trained_agent.pth'
         # Ensure models directory exists
         os.makedirs('models', exist_ok=True)
         torch.save(model.state_dict(), model_save_path)
-        print(f"Model saved to {model_save_path}")
+        logger.info(f"Model saved to {model_save_path}")
     else:  # REINFORCE
         model, training_history = train_reinforce(
             env, 
@@ -1009,21 +1083,22 @@ if __name__ == "__main__":
             gamma=args.gamma, 
             lr=args.lr, 
             max_steps=args.max_steps,
-            emergence=args.emergence
+            emergence=args.emergence,
+            log_level=args.log_level
         )
         # Save the trained model
         model_save_path = args.output if args.output else 'models/reinforce_trained_agent.pth'
         # Ensure models directory exists
         os.makedirs('models', exist_ok=True)
         torch.save(model.state_dict(), model_save_path)
-        print(f"Model saved to {model_save_path}")
+        logger.info(f"Model saved to {model_save_path}")
     
     # Test the trained agent
-    print(f"\nTesting {args.algorithm.upper()} trained agent...")
-    test_metrics = run_agent_test(env, model, num_episodes=5, args=args)
+    logger.info(f"\nTesting {args.algorithm.upper()} trained agent...")
+    test_metrics = run_agent_test(env, model, num_episodes=5, args=args, log_level=args.log_level)
     
-    print("\nTest Results:")
-    print(f"Average Reward: {test_metrics['avg_reward']:.2f}")
-    print(f"Average Episode Length: {test_metrics['avg_length']:.2f}")
-    print(f"Average Seeds Planted: {test_metrics['avg_seeds_planted']:.2f}")
-    print(f"Average Plants Harvested: {test_metrics['avg_plants_harvested']:.2f}") 
+    logger.info("\nTest Results:")
+    logger.info(f"Average Reward: {test_metrics['avg_reward']:.2f}")
+    logger.info(f"Average Episode Length: {test_metrics['avg_length']:.2f}")
+    logger.info(f"Average Seeds Planted: {test_metrics['avg_seeds_planted']:.2f}")
+    logger.info(f"Average Plants Harvested: {test_metrics['avg_plants_harvested']:.2f}") 

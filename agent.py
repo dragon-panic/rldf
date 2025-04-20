@@ -1,5 +1,9 @@
 import numpy as np
 from environment import GridWorld
+import logging
+
+# Get the existing logger from train.py or create one if it doesn't exist
+logger = logging.getLogger(__name__)
 
 class Agent:
     """A simple agent that can interact with the grid environment."""
@@ -81,7 +85,7 @@ class Agent:
                     if found_valid_position:
                         break
                         
-            print(f"Agent was moved from water to position ({start_row}, {start_col})")
+            logger.info(f"Agent was moved from water to position ({start_row}, {start_col})")
         
         # Set final position
         self.row = start_row
@@ -123,7 +127,7 @@ class Agent:
             bool: Whether the move was successful
         """
         if direction not in self.DIRECTION_VECTORS:
-            print(f"Invalid direction: {direction}")
+            logger.warning(f"Invalid direction: {direction}")
             return False
         
         # Get the movement vector
@@ -134,7 +138,7 @@ class Agent:
         new_col = self.col + delta_col
         
         # Debug movements
-        print(f"  DEBUG - Moving: dir={direction}, delta=({delta_row},{delta_col}), from=({self.row},{self.col}), to=({new_row},{new_col})")
+        logger.debug(f"Moving: dir={direction}, delta=({delta_row},{delta_col}), from=({self.row},{self.col}), to=({new_row},{new_col})")
         
         # Check if the move is valid (within bounds and not into water)
         if (0 <= new_row < self.environment.height and 
@@ -158,9 +162,9 @@ class Agent:
         else:
             # Debug why move failed
             if new_row < 0 or new_row >= self.environment.height or new_col < 0 or new_col >= self.environment.width:
-                print(f"  DEBUG - Move failed: Out of bounds")
+                logger.debug(f"Move failed: Out of bounds")
             elif self.environment.grid[new_row, new_col] == GridWorld.WATER:
-                print(f"  DEBUG - Move failed: Destination is water")
+                logger.debug(f"Move failed: Destination is water")
             return False
     
     def eat(self):
