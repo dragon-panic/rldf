@@ -125,4 +125,4 @@ checkpoints/
 runs/ 
 
 # Model weights for now
-*.pth
+models/
