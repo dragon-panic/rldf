@@ -1,8 +1,10 @@
 import torch
+import random
 import numpy as np
 from agent import Agent
 from model import ObservationEncoder, AgentCNN
 import torch.nn.functional as F
+from environment import GridWorld
 
 try:
     from train import PPOAgentCNN
@@ -131,6 +133,8 @@ class ModelBasedAgent(Agent):
         observation = observation.unsqueeze(0)  # Add batch dimension
         
         # Print agent's current status for debugging
+        print(f"DEBUG - Agent Environment:")
+        self.environment.print_surrounding_area(self.row, self.col, 3)  # 3 cells in each direction = 7x7 grid
         print(f"DEBUG - Agent status: Health={self.health:.1f}, Hunger={self.hunger:.1f}, Thirst={self.thirst:.1f}, Energy={self.energy:.1f}, Seeds={self.seeds}")
         
         # Get action probabilities - handle different model types

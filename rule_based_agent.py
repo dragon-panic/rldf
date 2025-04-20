@@ -442,7 +442,12 @@ class RuleBasedAgent(Agent):
                 'status': self.get_status(),
                 'cause_of_death': 'Health depleted'
             }
-            
+        
+        # Display the surrounding environment
+        print(f"DEBUG - Agent Environment:")
+        self.environment.print_surrounding_area(self.row, self.col, 3)  # 3 cells in each direction = 7x7 grid
+        print(f"DEBUG - Agent status: Health={self.health:.1f}, Hunger={self.hunger:.1f}, Thirst={self.thirst:.1f}, Energy={self.energy:.1f}, Seeds={self.seeds}")
+        
         # Scan surroundings to update memory
         self.scan_surroundings()
         

@@ -219,4 +219,61 @@ class GridWorld:
             'water_levels': self.water_level.copy(),
             'soil_fertility': self.soil_fertility.copy(),
             'plant_states': self.plant_state.copy()
-        } 
+        }
+
+    def print_surrounding_area(self, agent_row, agent_col, radius=3):
+        """
+        Print a text representation of the grid area surrounding a position.
+        
+        Args:
+            agent_row: Row coordinate of the agent
+            agent_col: Column coordinate of the agent
+            radius: Number of cells to show in each direction from the position
+        """
+        # Define symbols for different cell types
+        cell_symbols = {
+            self.EMPTY: ' ',
+            self.WATER: '~',
+            self.SOIL: '.',
+            self.PLANT: '*'
+        }
+        
+        # Calculate the bounds of the area to display
+        min_row = max(0, agent_row - radius)
+        max_row = min(self.height - 1, agent_row + radius)
+        min_col = max(0, agent_col - radius)
+        max_col = min(self.width - 1, agent_col + radius)
+        
+        # Print top border
+        print("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
+        
+        # Print grid rows
+        for r in range(min_row, max_row + 1):
+            print("  |", end="")
+            for c in range(min_col, max_col + 1):
+                # If this is the agent's position, show 'A'
+                if r == agent_row and c == agent_col:
+                    print("A", end=" " if c < max_col else "")
+                else:
+                    # Get the cell type and appropriate symbol
+                    cell_type = self.grid[r, c]
+                    symbol = cell_symbols.get(cell_type, '?')
+                    
+                    # Special case for plants - show growth state
+                    if cell_type == self.PLANT:
+                        plant_state = self.plant_state[r, c]
+                        if plant_state == self.PLANT_SEED:
+                            symbol = '.'
+                        elif plant_state == self.PLANT_GROWING:
+                            symbol = ','
+                        elif plant_state == self.PLANT_MATURE:
+                            symbol = '*'
+                    
+                    print(symbol, end=" " if c < max_col else "")
+            print("|")
+        
+        # Print bottom border
+        print("  +" + "-" * ((max_col - min_col + 1) * 2 - 1) + "+")
+        
+        # Print a simple legend
+        print("  Legend: A=Agent, ~=Water, .=Soil/Seed, ,=Growing, *=Mature") 
