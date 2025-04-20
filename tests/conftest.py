@@ -31,13 +31,14 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Configure the test environment"""
     # Make sure we can find our mock modules
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sys.path.insert(0, os.path.dirname(__file__))
     
     # Configure headless mode (no visualization windows) by default
     if not config.getoption("--show-visualization"):
-        # Set up mock pygame for all tests
+        # Set up mock pygame for all tests - now using the tests directory version
         try:
-            sys.modules['pygame'] = __import__('mock_pygame').pygame
+            from tests.mock_pygame import pygame
+            sys.modules['pygame'] = pygame
         except ImportError:
             pass
     

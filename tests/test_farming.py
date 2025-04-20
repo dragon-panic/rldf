@@ -245,10 +245,10 @@ def run_improved_farming_test(steps=500, visualize=True, log_level=logging.INFO,
         if 'pytest' in sys.modules:
             # Use mock visualizer for tests
             try:
-                from mock_visualize import MockVisualizer
+                from tests.mock_visualize import MockVisualizer
                 visualizer = MockVisualizer(env, cell_size=25, info_width=300)
                 visualizer.set_agent(agent)
-                pygame_module = __import__('mock_pygame').pygame
+                from tests.mock_pygame import pygame as pygame_module
             except ImportError:
                 logger.warning("Mock modules not found, disabling visualization")
                 visualize = False
@@ -256,12 +256,13 @@ def run_improved_farming_test(steps=500, visualize=True, log_level=logging.INFO,
             # Use real visualizer for interactive use
             try:
                 from visualize import GameVisualizer
-                import pygame as pygame_module
+                from tests.mock_pygame import pygame
+                sys.modules['pygame'] = pygame
                 visualizer = GameVisualizer(env, cell_size=25, info_width=300)
                 visualizer.set_agent(agent)
-                pygame_module.init()
-                pygame_module.display.set_caption("Improved Farming Test")
-                clock = pygame_module.Clock()
+                pygame.init()
+                pygame.display.set_caption("Improved Farming Test")
+                clock = pygame.Clock()
             except ImportError:
                 logger.warning("pygame or visualizer not found, disabling visualization")
                 visualize = False
@@ -291,13 +292,13 @@ def run_improved_farming_test(steps=500, visualize=True, log_level=logging.INFO,
         if visualize and not 'pytest' in sys.modules:
             # Only process pygame events when not in test mode
             # Process events
-            for event in pygame_module.event.get():
-                if event.type == pygame_module.QUIT:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame_module.KEYDOWN:
-                    if event.key == pygame_module.K_ESCAPE:
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
                         running = False
-                    elif event.key == pygame_module.K_SPACE:
+                    elif event.key == pygame.K_SPACE:
                         paused = not paused
             
             if not running:
@@ -417,7 +418,7 @@ def run_improved_farming_test(steps=500, visualize=True, log_level=logging.INFO,
             break
     
     if visualize and not 'pytest' in sys.modules:
-        pygame_module.quit()
+        pygame.quit()
     
     # Print final results
     logger.info("\nImproved Farming Test Results:")
@@ -568,7 +569,8 @@ def main():
         # Make sure we can find the mock modules
         sys.path.insert(0, '.')
         # Mock modules for headless testing
-        sys.modules['pygame'] = __import__('mock_pygame').pygame
+        from tests.mock_pygame import pygame
+        sys.modules['pygame'] = pygame
         # Force non-interactive matplotlib
         matplotlib.use('Agg')
     

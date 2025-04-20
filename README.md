@@ -135,7 +135,7 @@ The emergence approach tends to need longer training time but may discover novel
 - `evaluate.py`: Comprehensive agent evaluation framework
 - `run_training_and_evaluation.py`: End-to-end training and evaluation pipeline
 - `visualize_evaluation.py`: Graphical visualization of agent performance
-- `tests/`: All test modules organized in a separate directory
+- `tests/`: All test modules and testing utilities organized in a separate directory
 - `docs/`: Comprehensive documentation for using the system
 
 ## Usage

@@ -70,10 +70,10 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
         # Check if we're running as a test
         if 'pytest' in sys.modules:
             # Use mock visualizer for tests
-            from mock_visualize import MockVisualizer
+            from tests.mock_visualize import MockVisualizer
             visualizer = MockVisualizer(env, cell_size=25, info_width=300)
             visualizer.set_agent(agent)
-            pygame_module = __import__('mock_pygame').pygame
+            from tests.mock_pygame import pygame as pygame_module
         else:
             # Use real visualizer for interactive use
             from visualize import GameVisualizer

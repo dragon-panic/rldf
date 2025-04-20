@@ -47,7 +47,7 @@ def test_agent_decisions(steps=100, scenario="basic"):
         from mock_visualize import MockVisualizer
         visualizer = MockVisualizer(env, cell_size=25, info_width=300)
         visualizer.set_agent(agent)
-        pygame_module = __import__('mock_pygame').pygame
+        from tests.mock_pygame import pygame as pygame_module
     else:
         # Use real visualizer for interactive use
         from visualize import GameVisualizer
