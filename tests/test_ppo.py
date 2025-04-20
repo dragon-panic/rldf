@@ -2,7 +2,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from environment import GridWorld
-from train import train_ppo, run_agent_test, PPOAgentCNN, compute_gae, Memory
+from train import train_ppo, run_agent_test, compute_gae, Memory
+from ppo_model import PPOModel
 import time
 import pytest
 
@@ -16,7 +17,7 @@ def test_env():
 @pytest.fixture
 def test_model():
     """Create a PPO model for testing."""
-    return PPOAgentCNN()
+    return PPOModel()
 
 
 def test_ppo_short_run():
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     
     # Test the value function
     test_env = GridWorld(width=20, height=20)
-    test_model = PPOAgentCNN()
+    test_model = PPOModel()
     test_value_function(test_env, test_model)
     
     print("\nAll PPO tests completed successfully!") 

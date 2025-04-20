@@ -3,7 +3,8 @@ import torch
 import numpy as np
 from environment import GridWorld
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
+from reinforce_model import REINFORCEModel
 from model_based_agent import ModelBasedAgent
 import os
 
@@ -91,9 +92,9 @@ def test_observation_encoder(env, agent):
 
 
 def test_agent_cnn():
-    """Test that the AgentCNN model runs and produces valid outputs."""
+    """Test that the REINFORCEModel runs and produces valid outputs."""
     # Create a model with default parameters
-    model = AgentCNN()
+    model = REINFORCEModel()
     
     # Create a batch of dummy observations (batch_size=2, channels=7, height=7, width=7)
     dummy_obs = torch.rand(2, 7, 7, 7)
@@ -115,7 +116,7 @@ def test_agent_cnn():
 def test_model_integration(env, agent):
     """Test the integration between the observation encoder and model."""
     encoder = ObservationEncoder(env)
-    model = AgentCNN()
+    model = REINFORCEModel()
     
     # Get observation from the environment
     observation = encoder.get_observation(agent)

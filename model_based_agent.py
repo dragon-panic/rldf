@@ -2,7 +2,8 @@ import torch
 import random
 import numpy as np
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
+from reinforce_model import REINFORCEModel
 import torch.nn.functional as F
 from environment import GridWorld
 import logging
@@ -11,10 +12,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from train import PPOAgentCNN
+    from ppo_model import PPOModel
     PPO_AVAILABLE = True
 except ImportError:
-    logger.warning("Warning: PPOAgentCNN not available. Will only use standard AgentCNN models.")
+    logger.warning("Warning: PPOModel not available. Will only use standard REINFORCEModel.")
     PPO_AVAILABLE = False
 
 class ModelBasedAgent(Agent):
@@ -39,16 +40,16 @@ class ModelBasedAgent(Agent):
         
         # Determine model type based on filename
         if 'ppo' in model_path and PPO_AVAILABLE:
-            self.model = PPOAgentCNN()
+            self.model = PPOModel()
             self.is_ppo_model = True
             logger.info("Using PPO model architecture")
         else:
-            self.model = AgentCNN()
+            self.model = REINFORCEModel()
             self.is_ppo_model = False
             if 'ppo' in model_path and not PPO_AVAILABLE:
-                logger.warning("Warning: PPO model requested but PPOAgentCNN not available. Using standard AgentCNN.")
+                logger.warning("Warning: PPO model requested but PPOModel not available. Using standard REINFORCEModel.")
             else:
-                logger.info("Using standard AgentCNN architecture")
+                logger.info("Using standard REINFORCEModel architecture")
         
         # Load trained weights
         try:

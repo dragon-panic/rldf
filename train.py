@@ -5,7 +5,9 @@ import torch.optim as optim
 import argparse
 from environment import GridWorld
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
+from reinforce_model import REINFORCEModel
+from ppo_model import PPOModel
 import matplotlib.pyplot as plt
 from collections import deque
 import time
@@ -28,70 +30,6 @@ def set_log_level(log_level):
     
     # Also set our module logger level explicitly
     logger.setLevel(numeric_level)
-
-
-class PPOAgentCNN(nn.Module):
-    """
-    CNN model for PPO algorithm with both policy and value function heads.
-    Input: 7x7 grid with multiple channels
-    Output: Action probabilities and value function
-    """
-    
-    def __init__(self, num_channels=7, grid_size=7, num_actions=9):
-        """
-        Initialize the CNN model for PPO.
-        
-        Args:
-            num_channels: Number of input channels
-            grid_size: Size of the grid (e.g., 7 for a 7x7 grid)
-            num_actions: Number of possible actions
-        """
-        super(PPOAgentCNN, self).__init__()
-        
-        # Define the convolutional layers (shared network)
-        self.conv1 = nn.Conv2d(num_channels, 16, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        
-        # Calculate the size of the flattened features
-        flattened_size = 32 * grid_size * grid_size
-        
-        # Define the shared fully connected layer
-        self.fc_shared = nn.Linear(flattened_size, 256)
-        
-        # Define the policy head
-        self.policy_head = nn.Linear(256, num_actions)
-        
-        # Define the value head
-        self.value_head = nn.Linear(256, 1)
-    
-    def forward(self, x):
-        """
-        Forward pass of the network.
-        
-        Args:
-            x: Input tensor of shape (batch_size, num_channels, grid_size, grid_size)
-            
-        Returns:
-            tuple: (action_probs, state_values)
-        """
-        # Shared layers
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        
-        # Flatten the tensor
-        x = x.view(x.size(0), -1)
-        
-        # Shared dense layer
-        x = torch.relu(self.fc_shared(x))
-        
-        # Policy head (action probabilities)
-        action_logits = self.policy_head(x)
-        action_probs = torch.softmax(action_logits, dim=-1)
-        
-        # Value head (state value)
-        state_values = self.value_head(x)
-        
-        return action_probs, state_values, action_logits
 
 
 class RLAgent(Agent):
@@ -139,14 +77,15 @@ class RLAgent(Agent):
         # Add batch dimension
         observation = observation.unsqueeze(0)
         
-        # Get action probabilities and state value from the model
+        # Get action probabilities from the model
         with torch.no_grad():
-            # Check if the model is PPO (returns 3 values) or not (returns 1 value)
-            model_output = self.model(observation)
-            if isinstance(model_output, tuple) and len(model_output) == 3:
-                action_probs, _, _ = model_output
+            # Use the appropriate method based on model type
+            if hasattr(self.model, 'get_policy'):
+                # For PPOModel which has a get_policy helper method
+                action_probs = self.model.get_policy(observation)
             else:
-                action_probs = model_output
+                # For REINFORCEModel or other models that return probabilities directly
+                action_probs = self.model(observation)
         
         # Sample an action from the probability distribution
         action_distribution = torch.distributions.Categorical(action_probs)
@@ -171,13 +110,12 @@ class RLAgent(Agent):
         observation = observation.unsqueeze(0)
         
         # Get action probabilities and state value from the model
-        model_output = self.model(observation)
-        
-        # Check if the model is PPO (returns 3 values) or not (returns 1 value)
-        if isinstance(model_output, tuple) and len(model_output) == 3:
-            action_probs, state_value, action_logits = model_output
+        if hasattr(self.model, 'get_policy'):
+            # It's a PPOModel
+            action_probs, state_value, action_logits = self.model(observation)
         else:
-            action_probs = model_output
+            # It's a REINFORCEModel
+            action_probs = self.model(observation)
             # Create dummy values for state_value when using non-PPO model
             state_value = torch.zeros(1, 1)
         
@@ -462,7 +400,7 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
     
     # Create the model, encoder, and agent
     encoder = ObservationEncoder(env)
-    model = PPOAgentCNN()
+    model = PPOModel()
     agent = RLAgent(env, model, encoder)
     
     # Set up the optimizer
@@ -851,7 +789,7 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
     
     # Create the model, encoder, and agent
     encoder = ObservationEncoder(env)
-    model = AgentCNN()
+    model = REINFORCEModel()
     agent = RLAgent(env, model, encoder)
     
     # Set up the optimizer

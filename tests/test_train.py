@@ -3,7 +3,8 @@ import torch
 import numpy as np
 from environment import GridWorld
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
+from reinforce_model import REINFORCEModel
 from train import RLAgent, calculate_reward, train_reinforce
 
 
@@ -11,7 +12,7 @@ def test_rl_agent(env):
     """Test that the RLAgent properly extends the base Agent class."""
     # Create a model and encoder
     encoder = ObservationEncoder(env)
-    model = AgentCNN()
+    model = REINFORCEModel()
     
     # Create an RL agent
     rl_agent = RLAgent(env, model, encoder, start_row=5, start_col=5)
@@ -31,7 +32,7 @@ def test_decide_action(env):
     """Test that the RL agent can decide actions."""
     # Create a model and encoder
     encoder = ObservationEncoder(env)
-    model = AgentCNN()
+    model = REINFORCEModel()
     
     # Create an RL agent
     rl_agent = RLAgent(env, model, encoder, start_row=5, start_col=5)
@@ -47,7 +48,7 @@ def test_reward_function(env):
     """Test that the reward function returns reasonable values."""
     # Create a model and encoder
     encoder = ObservationEncoder(env)
-    model = AgentCNN()
+    model = REINFORCEModel()
     
     # Create an RL agent
     rl_agent = RLAgent(env, model, encoder, start_row=5, start_col=5)
@@ -93,7 +94,7 @@ def test_short_training_run(env):
     assert len(history['moving_avg']) == 2
     
     # Check that the model is of the right type
-    assert isinstance(model, AgentCNN)
+    assert isinstance(model, REINFORCEModel)
 
 
 if __name__ == "__main__":
