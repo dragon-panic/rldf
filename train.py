@@ -415,7 +415,7 @@ def calculate_emergence_reward(agent, action, success, prev_state=None):
 
 def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0.2, 
               gamma=0.99, gae_lambda=0.95, lr=0.0003, entropy_coef=0.05, value_coef=0.5,
-              max_steps=1000, max_grad_norm=0.5, batch_size=64):
+              max_steps=1000, max_grad_norm=0.5, batch_size=64, emergence=False):
     """
     Train the agent using the PPO algorithm.
     
@@ -482,7 +482,7 @@ def train_ppo(env, num_episodes=2000, update_timestep=2000, epochs=10, epsilon=0
             success = agent.step(action)
             
             # Calculate reward
-            reward = calculate_reward(agent, action, success, prev_state, args.emergence)
+            reward = calculate_reward(agent, action, success, prev_state, emergence)
             
             # Check if agent is alive (health > 0)
             is_terminal = False
@@ -784,7 +784,7 @@ def run_agent_test(env, model, num_episodes=10, max_steps=1000, args=None):
     }
 
 
-def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000):
+def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000, emergence=False):
     """
     Train the agent using the REINFORCE algorithm.
     
@@ -835,7 +835,7 @@ def train_reinforce(env, num_episodes=1000, gamma=0.99, lr=0.001, max_steps=1000
             success = agent.step(action)
             
             # Calculate reward
-            reward = calculate_reward(agent, action, success, prev_state, args.emergence)
+            reward = calculate_reward(agent, action, success, prev_state, emergence)
             agent.rewards.append(reward)
             episode_reward += reward
             
@@ -993,7 +993,8 @@ if __name__ == "__main__":
             entropy_coef=args.entropy_coef, 
             value_coef=args.value_coef, 
             max_steps=args.max_steps, 
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            emergence=args.emergence
         )
         # Save the trained model
         model_save_path = args.output if args.output else 'models/ppo_trained_agent.pth'
@@ -1007,7 +1008,8 @@ if __name__ == "__main__":
             num_episodes=args.episodes, 
             gamma=args.gamma, 
             lr=args.lr, 
-            max_steps=args.max_steps
+            max_steps=args.max_steps,
+            emergence=args.emergence
         )
         # Save the trained model
         model_save_path = args.output if args.output else 'models/reinforce_trained_agent.pth'
