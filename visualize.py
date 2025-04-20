@@ -191,13 +191,23 @@ class GameVisualizer:
         title = self.font.render("Agent Status", True, self.TEXT_COLOR)
         self.screen.blit(title, (self.width + 10, 10))
         
+        # Display agent type if available
+        agent_type = "Manual"
+        if "RuleBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Rule-Based AI"
+        elif "ModelBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Neural Network AI"
+            
+        type_text = self.font.render(f"Type: {agent_type}", True, self.TEXT_COLOR)
+        self.screen.blit(type_text, (self.width + 10, 35))
+        
         # Position
         pos_text = self.font.render(
             f"Position: ({status['position'][0]}, {status['position'][1]})", 
             True, 
             self.TEXT_COLOR
         )
-        self.screen.blit(pos_text, (self.width + 10, 40))
+        self.screen.blit(pos_text, (self.width + 10, 60))
         
         # Draw status bars
         statuses = [

@@ -67,15 +67,24 @@ We're starting with the farmer agent type in a simplified environment to establi
 - Implemented metrics to measure survival and farming success
 - Demonstrated that agent can effectively farm and survive
 
+## Phase 7: Model-Based Agent Implementation ✓
+
+- Added neural network-based agent that uses a trained model
+- Implemented agent selection feature (rule-based or model-based)
+- Created a comparison tool to run both agents side by side
+- Enhanced visualization to display agent type and current task
+
 ## Project Structure
 
 - `environment.py`: Defines the GridWorld class for the 2D environment
 - `agent.py`: Implements the Agent class with actions and status tracking
-- `rule_based_agent.py`: Extends Agent with decision-making logic
+- `rule_based_agent.py`: Extends Agent with rule-based decision-making logic
 - `simple_visualize.py`: Basic text visualization of the grid
 - `visualize.py`: Pygame-based graphical visualization
-- `visualize_ai_agent.py`: Visualization specifically for AI-controlled agents
 - `main.py`: Unified visualization system with multiple modes (manual, AI, hybrid)
+- `model.py`: Neural network architecture for agent decision making
+- `model_based_agent.py`: Neural network-based agent implementation
+- `compare_agents.py`: Tool to run both agent types side by side for comparison
 - `test_environment.py`: Tests to verify grid functionality
 - `test_resources.py`: Tests for resource dynamics and growth mechanics
 - `test_agent.py`: Tests for agent functionality
@@ -101,17 +110,22 @@ python test_visualize.py        # Run graphical visualization demo
 Use the main.py script for an interactive simulation with different modes:
 
 ```bash
-python main.py                  # Run in hybrid mode (default)
-python main.py --mode manual    # Run with manual agent control
-python main.py --mode ai        # Run with AI-controlled agent
-python main.py --death          # Run with near-death AI scenario
-python main.py --cell-size 30   # Change the display cell size
+python main.py                                # Run in hybrid mode (default)
+python main.py --mode manual                  # Run with manual agent control
+python main.py --mode ai                      # Run with AI-controlled agent
+python main.py --agent-type rule_based        # Use rule-based agent (default)
+python main.py --agent-type model_based       # Use neural network agent
+python main.py --mode ai --agent-type model_based  # Run neural network agent in AI mode
+python main.py --death                        # Run with near-death AI scenario
+python main.py --cell-size 30                 # Change the display cell size
 ```
 
-To see the rule-based AI agent in standalone mode (legacy):
+To compare both agent types side by side:
 
 ```bash
-python visualize_ai_agent.py    # Run AI-controlled agent visualization
+python compare_agents.py                      # Run both agents side by side
+python compare_agents.py --death              # Compare agents in death scenario
+python compare_agents.py --cell-size 20       # Adjust display size for comparison
 ```
 
 ## Visualization Controls
@@ -154,8 +168,8 @@ See `requirements.txt` for dependencies:
 4. Enhanced Visualization ✓
 5. Farming Actions ✓
 6. Rule-Based Agent Logic ✓
-7. Action Space and State Observations (next)
-8. Simple RL Agent for Farming
+7. Model-Based Agent Implementation ✓
+8. Advanced RL Training and Fine-tuning (next)
 9. Environment Dynamics (growth, decay)
 10. Advanced Agent Behaviors
 11. Multi-Agent Integration 

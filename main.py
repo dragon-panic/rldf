@@ -4,6 +4,7 @@ import argparse
 from environment import GridWorld
 from agent import Agent
 from rule_based_agent import RuleBasedAgent
+from model_based_agent import ModelBasedAgent
 from visualize import GameVisualizer
 
 class EnhancedVisualizer(GameVisualizer):
@@ -20,10 +21,17 @@ class EnhancedVisualizer(GameVisualizer):
         """Draw additional status information"""
         font = pygame.font.SysFont('Arial', 14)
         
+        # Determine agent type
+        agent_type = "Manual"
+        if "RuleBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Rule-Based"
+        elif "ModelBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Neural Network"
+        
         if hasattr(self.agent, 'current_task'):
-            status_text = f"Step: {step_count}  Task: {self.agent.current_task}  AI: {'On' if self.ai_control else 'Off'}"
+            status_text = f"Step: {step_count}  Agent: {agent_type}  Task: {self.agent.current_task}  AI: {'On' if self.ai_control else 'Off'}"
         else:
-            status_text = f"Step: {step_count}  AI: {'On' if self.ai_control else 'Off'}"
+            status_text = f"Step: {step_count}  Agent: {agent_type}  AI: {'On' if self.ai_control else 'Off'}"
             
         if hasattr(self.agent, 'is_alive') and not self.agent.is_alive:
             status_text += "  Status: DEAD"
@@ -60,8 +68,15 @@ class EnhancedVisualizer(GameVisualizer):
         
         self.ai_control = (mode == 'ai')
         
+        # Determine agent type
+        agent_type = "Manual"
+        if "RuleBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Rule-Based AI"
+        elif "ModelBasedAgent" in self.agent.__class__.__name__:
+            agent_type = "Neural Network AI"
+        
         # Display appropriate control instructions based on mode
-        print(f"Running in {mode.upper()} mode")
+        print(f"Running in {mode.upper()} mode with {agent_type} agent")
         print("Simulation Controls:")
         
         if mode in ['manual', 'hybrid']:
@@ -195,7 +210,7 @@ def setup_manual_environment():
     
     return env, agent
 
-def setup_ai_environment(death_scenario=False):
+def setup_ai_environment(agent_type='rule_based', death_scenario=False):
     """Set up an environment for AI agent control"""
     if death_scenario:
         # Create environment with minimal resources
@@ -206,8 +221,11 @@ def setup_ai_environment(death_scenario=False):
             for col in range(25, 28):
                 env.set_cell(row, col, GridWorld.WATER)
         
-        # Create rule-based agent
-        agent = RuleBasedAgent(env, start_row=10, start_col=10)
+        # Create AI agent based on selected type
+        if agent_type == 'model_based':
+            agent = ModelBasedAgent(env, start_row=10, start_col=10)
+        else:  # Default to rule-based
+            agent = RuleBasedAgent(env, start_row=10, start_col=10)
         
         # Set initial agent state to near-critical
         agent.hunger = 85.0  # Very hungry
@@ -232,8 +250,11 @@ def setup_ai_environment(death_scenario=False):
                 ], p=[0.2, 0.3, 0.5])  # 20% seed, 30% growing, 50% mature
                 env.plant_state[row, col] = plant_state
         
-        # Create rule-based agent
-        agent = RuleBasedAgent(env, start_row=env.height // 2, start_col=env.width // 2)
+        # Create AI agent based on selected type
+        if agent_type == 'model_based':
+            agent = ModelBasedAgent(env, start_row=env.height // 2, start_col=env.width // 2)
+        else:  # Default to rule-based
+            agent = RuleBasedAgent(env, start_row=env.height // 2, start_col=env.width // 2)
         
         # Set initial agent state 
         agent.hunger = 40.0
@@ -248,6 +269,8 @@ def main():
     parser = argparse.ArgumentParser(description='Run the RL Farming Simulation')
     parser.add_argument('--mode', type=str, choices=['manual', 'ai', 'hybrid'], 
                         default='hybrid', help='Simulation mode')
+    parser.add_argument('--agent-type', type=str, choices=['rule_based', 'model_based'],
+                        default='rule_based', help='Type of AI agent to use')
     parser.add_argument('--death', action='store_true', 
                         help='Run death scenario (AI agent only)')
     parser.add_argument('--cell-size', type=int, default=25,
@@ -258,7 +281,7 @@ def main():
     if args.mode == 'manual':
         env, agent = setup_manual_environment()
     else:  # 'ai' or 'hybrid'
-        env, agent = setup_ai_environment(death_scenario=args.death)
+        env, agent = setup_ai_environment(agent_type=args.agent_type, death_scenario=args.death)
     
     # Create visualizer
     visualizer = EnhancedVisualizer(env, cell_size=args.cell_size)
