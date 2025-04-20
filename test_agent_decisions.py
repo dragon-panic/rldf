@@ -2,8 +2,7 @@ import numpy as np
 from environment import GridWorld
 from rule_based_agent import RuleBasedAgent
 from agent import Agent
-from visualize import GameVisualizer
-import pygame
+import sys
 import time
 
 def test_agent_decisions(steps=100, scenario="basic"):
@@ -42,18 +41,22 @@ def test_agent_decisions(steps=100, scenario="basic"):
         agent.thirst = 40.0
         agent.seeds = 3
     
-    # Create visualizer
-    visualizer = GameVisualizer(env, cell_size=25, info_width=300)
-    visualizer.set_agent(agent)
-    
-    # Initialize pygame
-    pygame.init()
-    pygame.display.set_caption(f"Agent Decision Test - {scenario.capitalize()}")
-    clock = pygame.time.Clock()
-    font = pygame.font.SysFont('Arial', 14)
-    
-    # Run simulation
-    print(f"Running agent decision test: {scenario}")
+    # Create visualizer - use mock visualizer when running as a test
+    if 'pytest' in sys.modules:
+        # Use mock visualizer for tests
+        from mock_visualize import MockVisualizer
+        visualizer = MockVisualizer(env, cell_size=25, info_width=300)
+        visualizer.set_agent(agent)
+        pygame_module = __import__('mock_pygame').pygame
+    else:
+        # Use real visualizer for interactive use
+        from visualize import GameVisualizer
+        import pygame as pygame_module
+        visualizer = GameVisualizer(env, cell_size=25, info_width=300)
+        visualizer.set_agent(agent)
+        pygame_module.init()
+        pygame_module.display.set_caption(f"Agent Decision Test - {scenario.capitalize()}")
+        clock = pygame_module.Clock()
     
     # Track metrics
     metrics = {
@@ -74,16 +77,17 @@ def test_agent_decisions(steps=100, scenario="basic"):
     timer = 0
     
     while running and step_count < steps:
-        # Process events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+        # Process events - only when not in test mode
+        if not 'pytest' in sys.modules:
+            for event in pygame_module.event.get():
+                if event.type == pygame_module.QUIT:
                     running = False
-                elif event.key == pygame.K_SPACE:
-                    paused = not paused
-                    print(f"Simulation {'paused' if paused else 'resumed'}")
+                elif event.type == pygame_module.KEYDOWN:
+                    if event.key == pygame_module.K_ESCAPE:
+                        running = False
+                    elif event.key == pygame_module.K_SPACE:
+                        paused = not paused
+                        print(f"Simulation {'paused' if paused else 'resumed'}")
         
         # Run agent step
         if not paused:
@@ -146,9 +150,14 @@ def test_agent_decisions(steps=100, scenario="basic"):
         
         # Update visualization
         visualizer.update()
-        clock.tick(60)
+        
+        # Handle clock ticks for real pygame
+        if not 'pytest' in sys.modules and 'clock' in locals():
+            clock.tick(60)
     
-    pygame.quit()
+    # Clean up pygame if not in test mode
+    if not 'pytest' in sys.modules:
+        pygame_module.quit()
     
     # Print final results
     print("\nTest Results:")
@@ -177,7 +186,22 @@ def test_agent_decisions(steps=100, scenario="basic"):
         percentage = (count / len(metrics['decisions'])) * 100
         print(f"  {task}: {count} steps ({percentage:.1f}%)")
     
-    return metrics
+    # Add assertions for pytest (in test mode)
+    if 'pytest' in sys.modules:
+        # Basic assertions to check if the agent performed actions
+        assert step_count > 0, "No steps were executed"
+        assert len(metrics['decisions']) > 0, "No decisions were recorded"
+        assert agent.is_alive, "Agent should be alive at the end of the test"
+        
+        # Check if the agent performed some meaningful actions
+        # For basic scenario, we expect at least some farming actions
+        if scenario == "basic" or scenario == "farming":
+            assert metrics['seeds_planted'] + metrics['plants_tended'] + metrics['plants_harvested'] > 0, \
+                "Agent should perform some farming actions in basic/farming scenario"
+    
+    # Only return metrics when not running as a test
+    if not 'pytest' in sys.modules:
+        return metrics
 
 def create_basic_environment():
     """Create a basic test environment with mixed resources."""

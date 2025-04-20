@@ -1,9 +1,9 @@
 import numpy as np
 from environment import GridWorld
 from rule_based_agent import RuleBasedAgent
-from visualize import GameVisualizer
-import pygame
+import sys
 import time
+import matplotlib
 import matplotlib.pyplot as plt
 import logging
 
@@ -21,6 +21,10 @@ def trace(self, message, *args, **kwargs):
         self._log(TRACE_LEVEL, message, args, **kwargs)
 
 logging.Logger.trace = trace
+
+# Make matplotlib non-interactive in test environment
+if 'pytest' in sys.modules:
+    matplotlib.use('Agg')
 
 def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
     """
@@ -63,11 +67,22 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
     
     # Visualization setup
     if visualize:
-        visualizer = GameVisualizer(env, cell_size=25, info_width=300)
-        visualizer.set_agent(agent)
-        pygame.init()
-        pygame.display.set_caption("Improved Farming Test")
-        clock = pygame.time.Clock()
+        # Check if we're running as a test
+        if 'pytest' in sys.modules:
+            # Use mock visualizer for tests
+            from mock_visualize import MockVisualizer
+            visualizer = MockVisualizer(env, cell_size=25, info_width=300)
+            visualizer.set_agent(agent)
+            pygame_module = __import__('mock_pygame').pygame
+        else:
+            # Use real visualizer for interactive use
+            from visualize import GameVisualizer
+            import pygame as pygame_module
+            visualizer = GameVisualizer(env, cell_size=25, info_width=300)
+            visualizer.set_agent(agent)
+            pygame_module.init()
+            pygame_module.display.set_caption("Improved Farming Test")
+            clock = pygame_module.Clock()
     
     # Tracking metrics
     metrics = {
@@ -91,15 +106,16 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
     paused = False
     
     for step in range(steps):
-        if visualize:
+        if visualize and not 'pytest' in sys.modules:
+            # Only process pygame events when not in test mode
             # Process events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+            for event in pygame_module.event.get():
+                if event.type == pygame_module.QUIT:
                     running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+                elif event.type == pygame_module.KEYDOWN:
+                    if event.key == pygame_module.K_ESCAPE:
                         running = False
-                    elif event.key == pygame.K_SPACE:
+                    elif event.key == pygame_module.K_SPACE:
                         paused = not paused
             
             if not running:
@@ -107,7 +123,8 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
             
             if paused:
                 visualizer.update()
-                clock.tick(60)
+                if 'clock' in locals():
+                    clock.tick(60)
                 continue
         
         # Count plants in different growth stages before step
@@ -188,15 +205,16 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
         # Update visualization
         if visualize:
             visualizer.update()
-            clock.tick(60)
+            if not 'pytest' in sys.modules and 'clock' in locals():
+                clock.tick(60)
         
         # Check if agent died
         if not result['alive']:
             logger.warning(f"Agent died at step {step}! Cause: {result.get('cause_of_death', 'Unknown')}")
             break
     
-    if visualize:
-        pygame.quit()
+    if visualize and not 'pytest' in sys.modules:
+        pygame_module.quit()
     
     # Print final results
     logger.info("\nImproved Farming Test Results:")
@@ -223,8 +241,9 @@ def test_improved_farming(steps=500, visualize=True, log_level=logging.INFO):
         percentage = (count / (step+1)) * 100
         logger.debug(f"  {task}: {count} steps ({percentage:.1f}%)")
     
-    # Plot results
-    plot_farming_results(metrics, step+1)
+    # Plot results if not in test mode or specifically requested
+    if not 'pytest' in sys.modules or (visualize and '--show-plots' in sys.argv):
+        plot_farming_results(metrics, step+1)
     
     # Only return metrics when run directly, not when run as a test
     if __name__ == "__main__":
@@ -265,8 +284,15 @@ def plot_farming_results(metrics, steps):
     axs[2].legend()
     
     plt.tight_layout()
+    
+    # Save the figure
     plt.savefig('improved_farming_results.png')
-    plt.show()
+    
+    # Only show if not in test mode
+    if not 'pytest' in sys.modules:
+        plt.show()
+    else:
+        plt.close(fig)
 
 if __name__ == "__main__":
     # Run with default INFO level

@@ -1,5 +1,7 @@
 import pytest
 import logging
+import sys
+import os
 from environment import GridWorld
 from agent import Agent
 
@@ -11,6 +13,37 @@ def pytest_addoption(parser):
         default="WARNING",
         help="Set the logging level for tests (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
     )
+    parser.addoption(
+        "--show-visualization",
+        action="store_true",
+        help="Enable actual pygame visualization during tests (not recommended for CI)"
+    )
+    parser.addoption(
+        "--show-plots",
+        action="store_true",
+        help="Show matplotlib plots during tests (not recommended for CI)"
+    )
+
+def pytest_configure(config):
+    """Configure the test environment"""
+    # Make sure we can find our mock modules
+    sys.path.insert(0, os.path.dirname(__file__))
+    
+    # Configure headless mode (no visualization windows) by default
+    if not config.getoption("--show-visualization"):
+        # Set up mock pygame for all tests
+        try:
+            sys.modules['pygame'] = __import__('mock_pygame').pygame
+        except ImportError:
+            pass
+    
+    # Configure non-interactive matplotlib by default
+    if not config.getoption("--show-plots"):
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+        except ImportError:
+            pass
 
 @pytest.fixture(scope="session", autouse=True)
 def configure_logging(request):
@@ -25,7 +58,7 @@ def configure_logging(request):
     )
     
     # Configure specific loggers used in tests
-    for logger_name in ["farming_test"]:
+    for logger_name in ["farming_test", "mock_visualize", "mock_pygame"]:
         logger = logging.getLogger(logger_name)
         logger.setLevel(level)
     

@@ -22,10 +22,13 @@ def test_grid_creation():
     assert np.any(grid == GridWorld.SOIL), "No soil cells found in grid"
     
     print("Grid creation tests passed!")
-    return grid_world
+    # Don't return anything for pytest compatibility
 
-def test_cell_operations(grid_world):
+def test_cell_operations():
     """Test getting and setting cell values."""
+    # Create a grid world for testing
+    grid_world = GridWorld(width=50, height=30)
+    
     # Test get_cell
     row, col = 5, 10
     cell_value = grid_world.get_cell(row, col)
@@ -41,8 +44,11 @@ def test_cell_operations(grid_world):
     
     print("Cell operation tests passed!")
 
-def test_reset(grid_world):
+def test_reset():
     """Test resetting the grid."""
+    # Create a grid world for testing
+    grid_world = GridWorld(width=50, height=30)
+    
     # Place some plants
     for i in range(10):
         grid_world.set_cell(i, i, GridWorld.PLANT)
@@ -61,9 +67,9 @@ def test_reset(grid_world):
 if __name__ == "__main__":
     print("Running GridWorld tests...")
     
-    grid_world = test_grid_creation()
-    test_cell_operations(grid_world)
-    test_reset(grid_world)
+    test_grid_creation()
+    test_cell_operations()
+    test_reset()
     
     print("\nAll tests passed! Now showing a sample visualization:")
     
