@@ -49,10 +49,8 @@ class ModelBasedAgent(Agent):
             return {"alive": False, "cause_of_death": "Agent is already dead"}
         
         # Update status before making a decision
-        self.update_status()
-        
-        # Check if agent died from status update
-        if self.health <= 0:
+        is_alive = self.update_status()
+        if not is_alive:
             self.is_alive = False
             cause = ""
             if self.hunger >= 100:
@@ -93,9 +91,12 @@ class ModelBasedAgent(Agent):
         self._set_current_task(action)
         
         # Execute the action
-        success = self.step(action)
+        result = self.step(action)
         
-        return {"alive": True, "action": action, "success": success}
+        # For debugging: print action and success
+        print(f"ModelAgent action: {self.current_task}, Success: {result['success']}")
+        
+        return {"alive": result['alive'], "action": action, "success": result['success']}
     
     def _set_current_task(self, action):
         """Update the current task based on the selected action."""

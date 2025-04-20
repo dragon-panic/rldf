@@ -34,9 +34,58 @@ class Agent:
         """
         self.environment = environment
         
-        # Position
-        self.row = min(max(0, start_row), environment.height - 1)
-        self.col = min(max(0, start_col), environment.width - 1)
+        # Position - first ensure we're in bounds
+        start_row = min(max(0, start_row), environment.height - 1)
+        start_col = min(max(0, start_col), environment.width - 1)
+        
+        # Ensure agent is not placed on water
+        if environment.grid[start_row, start_col] == GridWorld.WATER:
+            # Find the nearest non-water cell
+            found_valid_position = False
+            search_radius = 1
+            
+            # Expand search radius until we find a non-water cell
+            while not found_valid_position and search_radius < max(environment.height, environment.width):
+                # Check cells in a square around the starting position
+                for r_offset in range(-search_radius, search_radius + 1):
+                    for c_offset in range(-search_radius, search_radius + 1):
+                        # Only check the perimeter of the square
+                        if abs(r_offset) == search_radius or abs(c_offset) == search_radius:
+                            r = start_row + r_offset
+                            c = start_col + c_offset
+                            
+                            # Ensure position is within bounds
+                            if (0 <= r < environment.height and 
+                                0 <= c < environment.width and
+                                environment.grid[r, c] != GridWorld.WATER):
+                                
+                                start_row, start_col = r, c
+                                found_valid_position = True
+                                break
+                    
+                    if found_valid_position:
+                        break
+                
+                # Increase search radius if needed
+                if not found_valid_position:
+                    search_radius += 1
+            
+            # If still no valid position found, do a full grid search
+            if not found_valid_position:
+                for r in range(environment.height):
+                    for c in range(environment.width):
+                        if environment.grid[r, c] != GridWorld.WATER:
+                            start_row, start_col = r, c
+                            found_valid_position = True
+                            break
+                    if found_valid_position:
+                        break
+                        
+            print(f"Agent was moved from water to position ({start_row}, {start_col})")
+        
+        # Set final position
+        self.row = start_row
+        self.col = start_col
         
         # Status attributes
         self.energy = 100.0  # 0-100
@@ -274,6 +323,13 @@ class Agent:
     
     def update_status(self):
         """Update the agent's status based on hunger and thirst."""
+        # Increase hunger and thirst over time (even when idle)
+        self.hunger = min(100, self.hunger + 0.5)  # Passive hunger increase
+        self.thirst = min(100, self.thirst + 0.8)  # Passive thirst increase (faster than hunger)
+        
+        # Energy decreases slightly over time
+        self.energy = max(0, self.energy - 0.2)  # Passive energy decrease
+        
         # Hunger and thirst affect health
         if self.hunger > 80 or self.thirst > 80:
             self.health = max(0, self.health - 2.0)

@@ -177,6 +177,18 @@ class EnhancedVisualizer(GameVisualizer):
                     self.agent.update_status()
                     step_count += 1
             
+            # Always update status for idle agents, even when paused
+            # This is to ensure hunger and thirst increase over time
+            if not paused and agent_alive:
+                idle_update_frequency = 60  # Update status every 60 frames (roughly once per second)
+                if frame_count % idle_update_frequency == 0:
+                    # Ensure agent is still alive
+                    if hasattr(self.agent, 'is_alive') and self.agent.is_alive:
+                        pass  # Status is already updated by step_ai or manual update
+                    elif not hasattr(self.agent, 'is_alive'):
+                        # For basic agents without is_alive attribute
+                        self.agent.update_status()
+            
             # Update the display
             self.update()
             self.draw_status_info(step_count)
@@ -186,6 +198,65 @@ class EnhancedVisualizer(GameVisualizer):
             pygame.time.Clock().tick(60)
         
         pygame.quit()
+
+def find_valid_start_position(env, preferred_row=None, preferred_col=None):
+    """
+    Find a valid starting position (non-water cell) for an agent.
+    
+    Args:
+        env: GridWorld environment
+        preferred_row: Preferred row coordinate (will try to find nearest valid cell if this is water)
+        preferred_col: Preferred column coordinate (will try to find nearest valid cell if this is water)
+        
+    Returns:
+        tuple: (row, col) of valid starting position
+    """
+    # Use center of grid if no preference given
+    if preferred_row is None:
+        preferred_row = env.height // 2
+    if preferred_col is None:
+        preferred_col = env.width // 2
+    
+    # Ensure coordinates are in bounds
+    preferred_row = min(max(0, preferred_row), env.height - 1)
+    preferred_col = min(max(0, preferred_col), env.width - 1)
+    
+    # If preferred position is not water, return it
+    if env.grid[preferred_row, preferred_col] != GridWorld.WATER:
+        return preferred_row, preferred_col
+    
+    # Find the nearest non-water cell
+    found_valid_position = False
+    search_radius = 1
+    
+    # Expand search radius until we find a non-water cell
+    while not found_valid_position and search_radius < max(env.height, env.width):
+        # Check cells in a square around the preferred position
+        for r_offset in range(-search_radius, search_radius + 1):
+            for c_offset in range(-search_radius, search_radius + 1):
+                # Only check the perimeter of the square
+                if abs(r_offset) == search_radius or abs(c_offset) == search_radius:
+                    r = preferred_row + r_offset
+                    c = preferred_col + c_offset
+                    
+                    # Ensure position is within bounds
+                    if (0 <= r < env.height and 
+                        0 <= c < env.width and
+                        env.grid[r, c] != GridWorld.WATER):
+                        
+                        return r, c
+        
+        # Increase search radius if needed
+        search_radius += 1
+    
+    # If still no valid position found, do a full grid search
+    for r in range(env.height):
+        for c in range(env.width):
+            if env.grid[r, c] != GridWorld.WATER:
+                return r, c
+    
+    # This should never happen unless the entire grid is water
+    raise ValueError("Could not find a valid starting position - grid is all water")
 
 def setup_manual_environment():
     """Set up a demo environment for manual control"""
@@ -201,8 +272,11 @@ def setup_manual_environment():
             if np.random.random() < 0.5:
                 env.plant_state[row, col] = GridWorld.PLANT_MATURE
     
+    # Find a valid starting position
+    start_row, start_col = find_valid_start_position(env)
+    
     # Create agent
-    agent = Agent(env, start_row=env.height // 2, start_col=env.width // 2)
+    agent = Agent(env, start_row=start_row, start_col=start_col)
     
     # Set initial agent state for demo
     agent.hunger = 30.0
@@ -221,11 +295,14 @@ def setup_ai_environment(agent_type='rule_based', death_scenario=False):
             for col in range(25, 28):
                 env.set_cell(row, col, GridWorld.WATER)
         
+        # Find a valid starting position
+        start_row, start_col = find_valid_start_position(env, preferred_row=10, preferred_col=10)
+        
         # Create AI agent based on selected type
         if agent_type == 'model_based':
-            agent = ModelBasedAgent(env, start_row=10, start_col=10)
+            agent = ModelBasedAgent(env, start_row=start_row, start_col=start_col)
         else:  # Default to rule-based
-            agent = RuleBasedAgent(env, start_row=10, start_col=10)
+            agent = RuleBasedAgent(env, start_row=start_row, start_col=start_col)
         
         # Set initial agent state to near-critical
         agent.hunger = 85.0  # Very hungry
@@ -250,11 +327,14 @@ def setup_ai_environment(agent_type='rule_based', death_scenario=False):
                 ], p=[0.2, 0.3, 0.5])  # 20% seed, 30% growing, 50% mature
                 env.plant_state[row, col] = plant_state
         
+        # Find a valid starting position
+        start_row, start_col = find_valid_start_position(env)
+        
         # Create AI agent based on selected type
         if agent_type == 'model_based':
-            agent = ModelBasedAgent(env, start_row=env.height // 2, start_col=env.width // 2)
+            agent = ModelBasedAgent(env, start_row=start_row, start_col=start_col)
         else:  # Default to rule-based
-            agent = RuleBasedAgent(env, start_row=env.height // 2, start_col=env.width // 2)
+            agent = RuleBasedAgent(env, start_row=start_row, start_col=start_col)
         
         # Set initial agent state 
         agent.hunger = 40.0
