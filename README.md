@@ -94,6 +94,22 @@ We're starting with the farmer agent type in a simplified environment to establi
 - Improved training efficiency with proper hyperparameter settings
 - Created visualizations for value function assessment
 
+## Phase 10: Training and Evaluation ✓
+
+- Created comprehensive evaluation framework:
+  - Performance metrics for agent behaviors
+  - Survival statistics and farming productivity tracking
+  - Comparative analysis between agent types
+- Implemented visualization tools for performance monitoring:
+  - Training progress visualization
+  - Agent behavior visualization during evaluation
+  - Comparative metrics visualization
+- Added complete evaluation pipeline:
+  - End-to-end training and evaluation workflow
+  - Batch evaluation across multiple episodes and scenarios
+  - Detailed performance reports and visualizations
+- Created guide documentation for training and evaluation
+
 ## Training Approaches
 
 The project supports two different approaches to training agents:
@@ -116,14 +132,10 @@ The emergence approach tends to need longer training time but may discover novel
 - `model_based_agent.py`: Neural network-based agent implementation
 - `compare_agents.py`: Tool to run both agent types side by side for comparison
 - `train.py`: Implementation of RL algorithms (REINFORCE and PPO)
-- `test_ppo.py`: Test script to verify PPO implementation components
-- `test_environment.py`: Tests to verify grid functionality
-- `test_resources.py`: Tests for resource dynamics and growth mechanics
-- `test_agent.py`: Tests for agent functionality
-- `test_farming.py`: Tests for farming actions
-- `test_farming_cycle.py`: Demonstrates a complete farming cycle
-- `test_rule_based_agent.py`: Evaluates the rule-based agent's performance
-- `test_visualize.py`: Demo for graphical visualization
+- `evaluate.py`: Comprehensive agent evaluation framework
+- `run_training_and_evaluation.py`: End-to-end training and evaluation pipeline
+- `visualize_evaluation.py`: Graphical visualization of agent performance
+- `phase10_guide.md`: Guide for using the training and evaluation system
 
 ## Usage
 
@@ -179,32 +191,39 @@ python compare_agents.py --cell-size 20       # Adjust display size for comparis
 To train an agent using reinforcement learning:
 
 ```bash
-# Train with default PPO settings
-python train.py
+# Complete training and evaluation pipeline
+python run_training_and_evaluation.py --algorithm ppo
 
-# Quick test run with minimal training for testing
-python train.py --quick
+# Train with PPO and compare with rule-based agent
+python run_training_and_evaluation.py --algorithm ppo --compare
 
-# Use emergence mode with simplified rewards
-python train.py --emergence
-
-# Quick test with emergence mode
-python train.py --quick --emergence
-
-# Use REINFORCE algorithm instead of PPO
-python train.py --algorithm reinforce
+# Train with REINFORCE algorithm
+python run_training_and_evaluation.py --algorithm reinforce
 
 # Customize training parameters
-python train.py --episodes 1000 --max-steps 800 --width 30 --height 30 --lr 0.0002
+python run_training_and_evaluation.py --num-episodes 1000 --max-steps 800 --learning-rate 0.0002
 
-# Customize PPO-specific parameters
-python train.py --update-timestep 1000 --epochs 8 --batch-size 128 --entropy-coef 0.02
-
-# Save the model with a custom filename
-python train.py --output my_custom_model.pth
+# Use emergence mode with simplified rewards
+python run_training_and_evaluation.py --emergence
 
 # Get help on all available parameters
-python train.py --help
+python run_training_and_evaluation.py --help
+```
+
+To evaluate agent performance:
+
+```bash
+# Evaluate a trained model
+python evaluate.py --agent-type ppo
+
+# Compare different agent types
+python evaluate.py --mode compare
+
+# Visualize agent behavior
+python evaluate.py --mode visualize
+
+# Detailed visualization of agent performance
+python visualize_evaluation.py --agent-type ppo --num-episodes 3
 ```
 
 ## Visualization Controls
@@ -250,5 +269,6 @@ See `requirements.txt` for dependencies:
 7. Model-Based Agent Implementation ✓
 8. Preliminary RL Training ✓
 9. Complete RL Implementation ✓
-10. Advanced Environment Dynamics (next)
-11. Multi-Agent Integration 
+10. Training and Evaluation ✓
+11. Advanced Environment Dynamics (next)
+12. Multi-Agent Integration 

@@ -144,9 +144,14 @@ class ModelBasedAgent(Agent):
         # Get action probabilities - handle different model types
         with torch.no_grad():
             if self.is_ppo_model:
-                action_probs, state_value, _ = self.model(observation)
+                model_output = self.model(observation)
+                # Check if the model is returning 3 values (PPO with action_probs, state_value, action_logits)
+                if isinstance(model_output, tuple) and len(model_output) == 3:
+                    action_probs, _, _ = model_output
+                else:
+                    action_probs, _ = model_output  # Backward compatibility
                 action_probs = action_probs.squeeze(0)
-                logger.debug(f"PPO Value prediction: {state_value.item():.3f}")
+                logger.debug(f"PPO Value prediction: {model_output[1].item():.3f}")
             else:
                 action_probs = self.model(observation).squeeze(0)
         
@@ -231,7 +236,12 @@ class ModelBasedAgent(Agent):
         
         with torch.no_grad():
             if self.is_ppo_model:
-                action_probs, _ = self.model(x)
+                model_output = self.model(x)
+                # Check if the model is returning 3 values (PPO with action_probs, state_value, action_logits)
+                if isinstance(model_output, tuple) and len(model_output) == 3:
+                    action_probs, _, _ = model_output
+                else:
+                    action_probs, _ = model_output  # Backward compatibility
                 action_probs = action_probs.squeeze(0)
             else:
                 action_probs = self.model(x).squeeze(0)
