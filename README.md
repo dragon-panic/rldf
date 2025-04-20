@@ -135,6 +135,7 @@ The emergence approach tends to need longer training time but may discover novel
 - `evaluate.py`: Comprehensive agent evaluation framework
 - `run_training_and_evaluation.py`: End-to-end training and evaluation pipeline
 - `visualize_evaluation.py`: Graphical visualization of agent performance
+- `tests/`: All test modules organized in a separate directory
 - `docs/`: Comprehensive documentation for using the system
 
 ## Usage
@@ -142,14 +143,26 @@ The emergence approach tends to need longer training time but may discover novel
 Run the test scripts to verify the environment setup:
 
 ```bash
-python test_environment.py      # Test basic grid functionality
-python test_resources.py        # Test resource dynamics
-python test_agent.py            # Test agent functionality
-python test_farming.py          # Test farming actions
-python test_farming_cycle.py    # See a complete farming cycle demonstration
-python test_rule_based_agent.py # Test rule-based agent performance
-python test_visualize.py        # Run graphical visualization demo
-python test_ppo.py              # Test PPO implementation components
+# Run all tests
+pytest tests/
+
+# Run specific tests
+pytest tests/test_environment.py      # Test basic grid functionality
+pytest tests/test_resources.py        # Test resource dynamics
+pytest tests/test_agent.py            # Test agent functionality
+pytest tests/test_farming.py          # Test farming actions
+pytest tests/test_farming_cycle.py    # See a complete farming cycle demonstration
+pytest tests/test_rule_based_agent.py # Test rule-based agent performance
+pytest tests/test_ppo.py              # Test PPO implementation components
+
+# Run tests with visualization (not recommended for CI)
+pytest tests/ --show-visualization
+
+# Run tests with plots (not recommended for CI)
+pytest tests/ --show-plots
+
+# Run tests with specific log level
+pytest tests/ --rldf-log-level=DEBUG
 ```
 
 Use the main.py script for an interactive simulation with different modes:
@@ -257,6 +270,7 @@ See `requirements.txt` for dependencies:
 - pygame (>=2.1.0)
 - matplotlib (>=3.5.0)
 - gymnasium (>=0.28.0)
+- pytest (>=7.0.0)
 
 ## Development Plan
 
@@ -271,4 +285,4 @@ See `requirements.txt` for dependencies:
 9. Complete RL Implementation ✓
 10. Training and Evaluation ✓
 11. Advanced Environment Dynamics (next)
-12. Multi-Agent Integration 
+12. Multi-Agent Integration

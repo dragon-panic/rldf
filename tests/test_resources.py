@@ -65,7 +65,8 @@ def test_fertility_regeneration():
     
     # Set specific fertility values for testing
     row, col = 2, 2
-    grid.soil_fertility[row, col] = 5.0
+    # Set fertility to a lower value so regeneration will be noticeable
+    grid.soil_fertility[row, col] = 3.0
     
     # Save initial fertility
     initial_fertility = grid.soil_fertility[row, col]
