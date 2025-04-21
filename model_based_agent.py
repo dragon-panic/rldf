@@ -108,6 +108,7 @@ class ModelBasedAgent(Agent):
         # Track current task
         self.current_task = "Initializing"
         self.is_alive = True
+        self.model_path = model_path  # Store model path for potential restarting
         
     def step_ai(self):
         """
@@ -133,41 +134,55 @@ class ModelBasedAgent(Agent):
                 cause = "Health depleted"
             return {"alive": False, "cause_of_death": cause}
         
-        # Get observation
+        # Get observation and action probabilities
         observation = self.encoder.get_observation(self)
-        observation = observation.unsqueeze(0)  # Add batch dimension
+        action_probs = self.get_action_probs_from_observation(observation)
         
         # Print agent's current status for debugging
         logger.debug(f"Agent Environment:")
         self.environment.print_surrounding_area(self.row, self.col, 3)  # 3 cells in each direction = 7x7 grid
         logger.debug(f"Agent status: Health={self.health:.1f}, Hunger={self.hunger:.1f}, Thirst={self.thirst:.1f}, Energy={self.energy:.1f}, Seeds={self.seeds}")
         
-        # Get action probabilities - handle different model types
-        with torch.no_grad():
-            if self.is_ppo_model:
-                model_output = self.model(observation)
-                # Check if the model is returning 3 values (PPO with action_probs, state_value, action_logits)
-                if isinstance(model_output, tuple) and len(model_output) == 3:
-                    action_probs, _, _ = model_output
-                else:
-                    action_probs, _ = model_output  # Backward compatibility
-                action_probs = action_probs.squeeze(0)
-                logger.debug(f"PPO Value prediction: {model_output[1].item():.3f}")
-            else:
-                action_probs = self.model(observation).squeeze(0)
-        
         # Print action probabilities for debugging
-        action_names = ["Move North", "Move South", "Move East", "Move West", 
+        action_names = ["Move North", "Move South", "Move East", "West", 
                         "Eat", "Drink", "Plant Seed", "Tend Plant", "Harvest"]
         
         logger.debug("Action probabilities:")
         for i, (name, prob) in enumerate(zip(action_names, action_probs.tolist())):
             logger.debug(f"  {i}: {name} = {prob:.3f}")
+            
+        # Use the shared action selection logic
+        action_result = self._select_and_take_action(action_probs)
         
-        # Get the highest probability action
-        action_idx = torch.argmax(action_probs).item()
+        # Return result
+        return {
+            "alive": self.is_alive, 
+            "action": action_result["action"], 
+            "success": action_result["success"],
+            "attempted_actions": action_result["attempted_actions"]
+        }
         
-        # Map the action index to actual action
+    def _select_and_take_action(self, action_probs):
+        """
+        Select an action based on probabilities and execute it.
+        This is shared logic used by both step_ai and decide_action.
+        
+        Args:
+            action_probs: Action probabilities from the model
+            
+        Returns:
+            dict: Result containing the action, success status, and attempted actions
+        """
+        # Convert to numpy array for easier sorting
+        if isinstance(action_probs, torch.Tensor):
+            probs_array = action_probs.numpy()
+        else:
+            probs_array = action_probs
+            
+        # Sort actions by probability (descending)
+        action_indices = np.argsort(-probs_array)
+        
+        # Map indices to action constants
         action_map = {
             0: Agent.MOVE_NORTH,
             1: Agent.MOVE_SOUTH,
@@ -180,22 +195,49 @@ class ModelBasedAgent(Agent):
             8: Agent.HARVEST
         }
         
-        action = action_map[action_idx]
+        # Action names for logging
+        action_names = ["Move North", "Move South", "Move East", "Move West", 
+                        "Eat", "Drink", "Plant Seed", "Tend Plant", "Harvest"]
+                        
+        # Try actions in order of probability until one succeeds
+        success = False
+        chosen_action = None
+        attempted_actions = []
         
-        # Set current task based on action
-        self._set_current_task(action)
+        for action_idx in action_indices:
+            action = action_map[action_idx.item()]
+            action_name = action_names[action_idx.item()]
+            
+            # Remember this attempt
+            attempted_actions.append(action_name)
+            
+            # Set current task based on action
+            self._set_current_task(action)
+            
+            # Try to execute the action
+            logger.debug(f"Trying action: {action_name}")
+            result = self.step(action)
+            
+            # Check if action was successful
+            if result['success']:
+                success = True
+                chosen_action = action
+                logger.debug(f"Action {action_name} succeeded")
+                break
+            else:
+                logger.debug(f"Action {action_name} failed, trying next action")
         
-        # Print chosen action
-        logger.debug(f"Chosen action: {self.current_task}")
-        
-        # Execute the action
-        result = self.step(action)
-        
-        # Print action result
-        logger.debug(f"Action result: success={result['success']}, alive={result['alive']}\n")
-        
+        # If all actions failed, just use the highest probability action for logging
+        if not success:
+            logger.warning("All actions failed to execute successfully")
+            chosen_action = action_map[action_indices[0].item()]
+            
         # Return result
-        return {"alive": result['alive'], "action": action, "success": result['success']}
+        return {
+            "action": chosen_action,
+            "success": success,
+            "attempted_actions": attempted_actions
+        }
     
     def _set_current_task(self, action):
         """Update the current task based on the selected action."""
@@ -218,6 +260,35 @@ class ModelBasedAgent(Agent):
         elif action == Agent.HARVEST:
             self.current_task = "Harvesting"
 
+    def get_action_probs_from_observation(self, observation):
+        """
+        Get action probabilities directly from an observation.
+        
+        Args:
+            observation: The current observation tensor
+            
+        Returns:
+            Action probabilities as a tensor.
+        """
+        # Add batch dimension if needed
+        x = observation.unsqueeze(0) if len(observation.shape) == 3 else observation
+        
+        # Forward pass through the model
+        with torch.no_grad():
+            if self.is_ppo_model:
+                model_output = self.model(x)
+                # Check if the model is returning 3 values (PPO with action_probs, state_value, action_logits)
+                if isinstance(model_output, tuple) and len(model_output) == 3:
+                    action_probs, _, _ = model_output
+                else:
+                    action_probs, _ = model_output  # Backward compatibility
+                action_probs = action_probs.squeeze(0)
+                logger.debug(f"PPO Value prediction: {model_output[1].item():.3f}")
+            else:
+                action_probs = self.model(x).squeeze(0)
+                
+        return action_probs
+            
     def get_action_probs(self, state):
         """
         Get action probabilities from the model.
@@ -235,17 +306,8 @@ class ModelBasedAgent(Agent):
         logger.debug(f"Input tensor shape: {x.shape}, mean: {x.mean().item():.4f}, std: {x.std().item():.4f}")
         logger.debug(f"Input tensor range: [{x.min().item():.4f}, {x.max().item():.4f}]")
         
-        with torch.no_grad():
-            if self.is_ppo_model:
-                model_output = self.model(x)
-                # Check if the model is returning 3 values (PPO with action_probs, state_value, action_logits)
-                if isinstance(model_output, tuple) and len(model_output) == 3:
-                    action_probs, _, _ = model_output
-                else:
-                    action_probs, _ = model_output  # Backward compatibility
-                action_probs = action_probs.squeeze(0)
-            else:
-                action_probs = self.model(x).squeeze(0)
+        # Get action probabilities directly
+        action_probs = self.get_action_probs_from_observation(x if isinstance(observation, torch.Tensor) else observation)
         
         # Check for NaN values
         if torch.isnan(action_probs).any():
@@ -269,6 +331,7 @@ class ModelBasedAgent(Agent):
     def decide_action(self):
         """
         Decide the next action based on the neural network.
+        This is used for evaluation and testing.
         
         Returns:
             int: The action to take
@@ -284,16 +347,94 @@ class ModelBasedAgent(Agent):
         logger.debug(f"Current task: {self.current_task}")
         logger.debug(f"Agent status - Health: {self.health:.1f}, Hunger: {self.hunger:.1f}, Thirst: {self.thirst:.1f}")
         
-        # Sample an action from the probability distribution
         try:
-            action = np.random.choice(len(action_probs), p=action_probs)
-            logger.debug(f"Selected action: {action} ({self.action_to_string(action)})")
+            # Use a simplified version of the shared logic that only validates rather than executing
+            # This is because decide_action() should only return the action, not perform it
+            
+            # Sort actions by probability (descending)
+            action_indices = np.argsort(-action_probs)
+            
+            # Check each action in order of probability
+            for action_idx in action_indices:
+                action = action_idx
+                action_name = self.action_to_string(action)
+                
+                # Check if this action might succeed
+                if self._is_action_likely_valid(action):
+                    logger.debug(f"Selected action: {action} ({action_name}) - likely valid")
+                    return action
+            
+            # If no action looks valid, take the highest probability one anyway
+            action = action_indices[0]
+            logger.debug(f"Selected action: {action} ({self.action_to_string(action)}) - highest probability")
             return action
+            
         except Exception as e:
-            logger.error(f"Error sampling action: {e}")
-            # Fallback to random action if sampling fails
+            logger.error(f"Error selecting action: {e}")
+            # Fallback to random action if selection fails
             return np.random.randint(0, len(action_probs))
             
+    def _is_action_likely_valid(self, action):
+        """
+        Check if an action is likely to be valid without actually performing it.
+        
+        Args:
+            action: The action to check
+            
+        Returns:
+            bool: Whether the action is likely to be valid
+        """
+        # Movement actions - check if destination is valid
+        if action in [self.MOVE_NORTH, self.MOVE_SOUTH, self.MOVE_EAST, self.MOVE_WEST]:
+            # Get movement vector
+            delta_row, delta_col = self.DIRECTION_VECTORS.get(action, (0, 0))
+            new_row = self.row + delta_row
+            new_col = self.col + delta_col
+            
+            # Check if the move is valid (within bounds and not into water)
+            if (0 <= new_row < self.environment.height and 
+                0 <= new_col < self.environment.width and
+                self.environment.grid[new_row, new_col] != GridWorld.WATER):
+                return True
+            return False
+            
+        # Eat action - check if there's a mature plant on the current cell
+        elif action == self.EAT:
+            return (self.environment.grid[self.row, self.col] == GridWorld.PLANT and
+                   self.environment.plant_state[self.row, self.col] == GridWorld.PLANT_MATURE)
+                   
+        # Drink action - check if there's water nearby
+        elif action == self.DRINK:
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    r, c = self.row + dr, self.col + dc
+                    if (0 <= r < self.environment.height and 
+                        0 <= c < self.environment.width and
+                        self.environment.grid[r, c] == GridWorld.WATER):
+                        return True
+            return False
+            
+        # Plant seed action - check if current cell is valid for planting
+        elif action == self.PLANT_SEED:
+            return (self.seeds > 0 and
+                   self.environment.grid[self.row, self.col] == GridWorld.SOIL and
+                   self.environment.plant_state[self.row, self.col] == GridWorld.PLANT_NONE and
+                   self.environment.soil_fertility[self.row, self.col] >= 3.0)
+                   
+        # Tend plant action - check if there's a plant to tend
+        elif action == self.TEND_PLANT:
+            return (self.environment.grid[self.row, self.col] == GridWorld.PLANT and
+                   (self.environment.plant_state[self.row, self.col] == GridWorld.PLANT_SEED or
+                    self.environment.plant_state[self.row, self.col] == GridWorld.PLANT_GROWING))
+                    
+        # Harvest action - check if there's a mature plant
+        elif action == self.HARVEST:
+            return (self.environment.grid[self.row, self.col] == GridWorld.PLANT and
+                   self.environment.plant_state[self.row, self.col] == GridWorld.PLANT_MATURE)
+        
+        # Default to True for unknown actions
+        return True
+
     def action_to_string(self, action):
         """Convert action index to descriptive string."""
         action_names = {

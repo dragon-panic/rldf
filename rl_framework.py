@@ -9,13 +9,11 @@ from collections import defaultdict
 
 from environment import GridWorld
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
 from rule_based_agent import RuleBasedAgent
 from train import (
     train_reinforce, 
     train_ppo, 
-    RLAgent, 
-    PPOAgentCNN, 
     set_log_level, 
     run_agent_test
 )

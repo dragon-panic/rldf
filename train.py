@@ -238,19 +238,19 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
     
     # Penalties for letting vitals drop low
     if agent.hunger > 80:
-        reward -= 0.5
+        reward -= 1.5  # Increased from 0.5 to emphasize hunger importance
     if agent.thirst > 80:
-        reward -= 0.5
+        reward -= 1.0  # Increased from 0.5 but still less than hunger
     if agent.energy < 20:
         reward -= 0.3
     
     # If agent health is getting low, larger penalty
     if agent.health < 50:
-        reward -= 0.5
+        reward -= 1.0  # Increased from 0.5
     
     # Additional penalties for critical conditions
     if agent.hunger > 95 or agent.thirst > 95 or agent.energy < 5:
-        reward -= 2.0
+        reward -= 5.0  # Increased from 2.0 to strongly discourage critical states
     
     # If the action was not successful, small penalty
     if not success:
@@ -262,7 +262,7 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
         # Verify we actually planted a seed (which consumes a seed)
         initial_seeds = prev_state['seeds'] if prev_state else agent.seeds + 1
         if agent.seeds < initial_seeds:
-            reward += 1.0  # Planting is good
+            reward += 1.5  # Increased from 1.0 to encourage farming
         else:
             # Attempted to plant but failed (no seeds, wrong terrain, etc.)
             reward -= 0.5
@@ -271,7 +271,7 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
         # We already verified success is True, which means the plant was tended
         # in the tend_plant method, but let's add an extra check
         if success:
-            reward += 0.5  # Tending plants is good
+            reward += 1.0  # Increased from 0.5 to encourage farming
         else:
             # Attempted to tend but failed (no plant, mature plant, etc.)
             reward -= 0.3
@@ -283,7 +283,7 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
         # 2. We got more seeds as a result (this is the result of a proper harvest)
         initial_seeds = prev_state['seeds'] if prev_state else 0
         if agent.seeds > initial_seeds:
-            reward += 3.0  # Harvesting is very good - but only if it was a real harvest
+            reward += 4.0  # Increased from 3.0 to make harvesting more valuable
         else:
             # Attempting to harvest with nothing to harvest should actually be penalized
             reward -= 0.5
@@ -294,7 +294,7 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
         initial_hunger = prev_state['hunger'] if prev_state else 100.0
         if agent.hunger < initial_hunger:
             hunger_factor = min(1.0, initial_hunger / 60.0)  # Use initial hunger to scale reward
-            reward += 2.0 * hunger_factor
+            reward += 3.0 * hunger_factor  # Increased from 2.0 to prioritize eating
         else:
             # Attempting to eat with nothing to eat should be penalized
             reward -= 0.5
@@ -305,13 +305,36 @@ def calculate_structured_reward(agent, action, success, prev_state=None):
         initial_thirst = prev_state['thirst'] if prev_state else 100.0
         if agent.thirst < initial_thirst:
             thirst_factor = min(1.0, initial_thirst / 60.0)  # Use initial thirst to scale reward
-            reward += 2.0 * thirst_factor
+            
+            # Add diminishing returns for repeated drinking
+            # Check if the previous action was also drinking
+            has_diminishing_return = False
+            if prev_state and len(agent.action_history) >= 2:
+                last_action = agent.action_history[-1][0] if agent.action_history else None
+                if last_action == 'drink':
+                    has_diminishing_return = True
+                    reward += 1.0 * thirst_factor  # Reduced from 2.0 for repeated drinking
+                else:
+                    reward += 2.0 * thirst_factor  # Normal reward for first drink
+            else:
+                reward += 2.0 * thirst_factor  # Normal reward if we can't check history
+            
+            # Add a penalty based on hunger if the agent is drinking while very hungry
+            # This discourages drinking when hunger is critical
+            if agent.hunger > 70:
+                hunger_penalty = (agent.hunger - 70) / 30.0  # 0 to 1 scale for hunger 70-100
+                reward -= 1.5 * hunger_penalty  # Reduces drink reward when hunger is high
         else:
             # Attempting to drink with no water nearby should be penalized
             reward -= 0.5
     
     # Small reward for staying alive
     reward += 0.05
+    
+    # Bonus reward for balanced survival (both hunger and thirst are low)
+    if agent.hunger < 30 and agent.thirst < 30:
+        balance_bonus = (1.0 - agent.hunger/100.0) * (1.0 - agent.thirst/100.0)
+        reward += 0.5 * balance_bonus  # Reward for keeping both needs satisfied
     
     return reward
 

@@ -8,10 +8,11 @@ import argparse
 from collections import defaultdict
 from environment import GridWorld
 from agent import Agent
-from model import ObservationEncoder, AgentCNN
+from model import ObservationEncoder
 from rule_based_agent import RuleBasedAgent
 from model_based_agent import ModelBasedAgent
-from train import PPOAgentCNN, RLAgent, set_log_level
+from rl_models import REINFORCEModel, PPOModel
+from train import RLAgent, set_log_level
 
 # Set up logging
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
